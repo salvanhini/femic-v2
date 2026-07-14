@@ -1,0 +1,251 @@
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
+export interface Database {
+  public: {
+    Tables: {
+      patients: {
+        Row: Patient;
+        Insert: Omit<Patient, "created_at">;
+        Update: Partial<Patient>;
+      };
+      health_insurances: {
+        Row: HealthInsurance;
+        Insert: Omit<HealthInsurance, "created_at">;
+        Update: Partial<HealthInsurance>;
+      };
+      services: {
+        Row: Service;
+        Insert: Omit<Service, "created_at">;
+        Update: Partial<Service>;
+      };
+      session_packages: {
+        Row: SessionPackage;
+        Insert: Omit<SessionPackage, "created_at">;
+        Update: Partial<SessionPackage>;
+      };
+      appointments: {
+        Row: Appointment;
+        Insert: Omit<Appointment, "created_at">;
+        Update: Partial<Appointment>;
+      };
+      clinical_anamneses: {
+        Row: ClinicalAnamnesis;
+        Insert: Omit<ClinicalAnamnesis, "created_at" | "updated_at">;
+        Update: Partial<ClinicalAnamnesis>;
+      };
+      clinical_evolutions: {
+        Row: ClinicalEvolution;
+        Insert: Omit<ClinicalEvolution, "created_at">;
+        Update: Partial<ClinicalEvolution>;
+      };
+      femic_generated_documents: {
+        Row: GeneratedDocument;
+        Insert: Omit<GeneratedDocument, "created_at" | "updated_at">;
+        Update: Partial<GeneratedDocument>;
+      };
+      session_movements: {
+        Row: SessionMovement;
+        Insert: Omit<SessionMovement, "created_at">;
+        Update: Partial<SessionMovement>;
+      };
+      clinic_rules: {
+        Row: ClinicRule;
+        Insert: Omit<ClinicRule, "created_at" | "updated_at">;
+        Update: Partial<ClinicRule>;
+      };
+      assistant_tasks: {
+        Row: AssistantTask;
+        Insert: Omit<AssistantTask, "created_at" | "updated_at">;
+        Update: Partial<AssistantTask>;
+      };
+      schedule_settings: {
+        Row: ScheduleSettings;
+        Insert: Omit<ScheduleSettings, "created_at">;
+        Update: Partial<ScheduleSettings>;
+      };
+      patient_form_responses: {
+        Row: PatientFormResponse;
+        Insert: Omit<PatientFormResponse, "id" | "submitted_at">;
+        Update: Partial<PatientFormResponse>;
+      };
+    };
+  };
+}
+
+export interface Patient {
+  id: string;
+  name: string;
+  pathology: string | null;
+  whatsapp: string | null;
+  archived: boolean;
+  archived_at: string | null;
+  created_at: string;
+}
+
+export interface HealthInsurance {
+  id: string;
+  name: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  type: string | null;
+  price: number | null;
+  duration_minutes: number | null;
+  appointment_mode: string | null;
+  max_patients: number | null;
+  health_insurance_id: string | null;
+  active: boolean;
+  created_at: string;
+}
+
+export interface SessionPackage {
+  id: string;
+  patient_id: string;
+  service_id: string | null;
+  total_sessions: number | null;
+  remaining_sessions: number | null;
+  active: boolean;
+  created_at: string;
+}
+
+export interface Appointment {
+  id: string;
+  patient_id: string;
+  service_id: string | null;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  duration_minutes: number | null;
+  status: string;
+  package_consumed: boolean;
+  session_package_id: string | null;
+  service_price_at_time: number | null;
+  notes: string | null;
+  appointment_reminder_sent: boolean;
+  appointment_reminder_sent_at: string | null;
+  form_reminder_sent: boolean;
+  form_reminder_sent_at: string | null;
+  reminder_sent: boolean;
+  reminder_sent_at: string | null;
+  created_at: string;
+}
+
+export interface ClinicalAnamnesis {
+  id: string;
+  patient_id: string;
+  chief_complaint: string | null;
+  history: string | null;
+  diagnosis: string | null;
+  limitations: string | null;
+  goals: string | null;
+  obs: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClinicalEvolution {
+  id: string;
+  patient_id: string;
+  date: string;
+  conduct: string | null;
+  guidance: string | null;
+  created_at: string;
+}
+
+export interface GeneratedDocument {
+  id: string;
+  patient_id: string | null;
+  patient_name: string | null;
+  document_type: string | null;
+  document_title: string | null;
+  document_body: string | null;
+  document_date: string | null;
+  rendered_html: string | null;
+  metadata: Json;
+  status: string;
+  source: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SessionMovement {
+  id: string;
+  patient_id: string;
+  appointment_id: string | null;
+  session_package_id: string | null;
+  type: string | null;
+  quantity: number | null;
+  created_at: string;
+}
+
+export interface ClinicRule {
+  id: string;
+  rule_key: string;
+  rule_category: string | null;
+  title: string;
+  description: string | null;
+  rule_value_json: Json;
+  active: boolean;
+  priority: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssistantTask {
+  id: string;
+  title: string;
+  type: string | null;
+  status: string;
+  priority: string | null;
+  patient_id: string | null;
+  patient_name: string | null;
+  service_id: string | null;
+  service_name: string | null;
+  suggestion_reason: string | null;
+  phone: string | null;
+  origin: string | null;
+  requested_action: string | null;
+  notes: string | null;
+  suggested_slots: Json;
+  candidates: Json;
+  parsed_shift: string | null;
+  parsed_dates: Json;
+  extension_fingerprint: string | null;
+  needs_review: boolean;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface ScheduleSettings {
+  id: string;
+  start_time: string | null;
+  end_time: string | null;
+  working_days: string | null;
+  working_periods: string | null;
+  max_patients_per_slot: number | null;
+  slot_interval_minutes: number | null;
+  created_at: string;
+}
+
+export interface PatientFormResponse {
+  id: string;
+  submitted_at: string;
+  response_date: string;
+  patient_name: string;
+  patient_whatsapp: string;
+  patient_pathology: string | null;
+  pain: number | null;
+  functionality: number | null;
+  satisfaction: number | null;
+  symptoms: string[] | null;
+  obs: string | null;
+  source: string | null;
+  imported: boolean;
+  linked_patient_id: string | null;
+  imported_at: string | null;
+}
