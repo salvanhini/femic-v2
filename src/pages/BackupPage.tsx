@@ -21,7 +21,7 @@ export default function BackupPage() {
     try {
       const data: Record<string, unknown> = { exported_at: new Date().toISOString(), tables: {} };
       for (const table of TABLES) {
-        const { data: rows } = await getSupabase().from(table).select("*");
+        const { data: rows } = await (getSupabase() as any).from(table).select("*");
         (data.tables as Record<string, unknown>)[table] = rows || [];
       }
       const json = JSON.stringify(data, null, 2);
@@ -57,15 +57,15 @@ export default function BackupPage() {
       for (const table of order) {
         const rows = tables[table];
         if (!Array.isArray(rows) || rows.length === 0) continue;
-        const { error: delErr } = await getSupabase().from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        const { error: delErr } = await (getSupabase() as any).from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
         if (delErr) {
           for (const row of rows) {
-            await getSupabase().from(table).upsert(row).maybeSingle();
+            await (getSupabase() as any).from(table).upsert(row).maybeSingle();
           }
         } else {
           for (let i = 0; i < rows.length; i += 50) {
             const chunk = rows.slice(i, i + 50);
-            const { error: insErr } = await getSupabase().from(table).insert(chunk);
+            const { error: insErr } = await (getSupabase() as any).from(table).insert(chunk);
             if (insErr) console.warn(`Insert error on ${table}:`, insErr);
           }
         }
@@ -87,7 +87,7 @@ export default function BackupPage() {
       await handleExport();
       const clearTables = ["appointments", "session_movements", "session_packages", "clinical_evolutions", "femic_generated_documents", "assistant_tasks"];
       for (const table of clearTables) {
-        const { error } = await getSupabase().from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        const { error } = await (getSupabase() as any).from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
         if (error) console.warn(`Erro ao limpar ${table}:`, error);
       }
       toast.success("Backup exportado e dados anuais removidos");

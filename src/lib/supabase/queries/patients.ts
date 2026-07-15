@@ -11,7 +11,7 @@ export async function fetchPatients() {
 }
 
 export async function createPatient(patient: Partial<Patient>) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("patients")
     .insert(patient)
     .select()
@@ -21,7 +21,7 @@ export async function createPatient(patient: Partial<Patient>) {
 }
 
 export async function updatePatient(id: string, patient: Partial<Patient>) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("patients")
     .update(patient)
     .eq("id", id)

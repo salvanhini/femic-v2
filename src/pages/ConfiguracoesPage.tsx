@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { fetchScheduleSettings, upsertScheduleSettings } from "@/lib/supabase/queries/services";
+import { fetchScheduleSettings } from "@/lib/supabase/queries/services";
 import { getSupabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import type { ScheduleSettings } from "@/lib/types/database";
@@ -63,9 +63,9 @@ export default function ConfiguracoesPage() {
   const saveMutation = useMutation({
     mutationFn: async (data: Partial<ScheduleSettings>) => {
       if (settings?.id) {
-        await getSupabase().from("schedule_settings").update(data).eq("id", settings.id);
+        await (getSupabase() as any).from("schedule_settings").update(data).eq("id", settings.id);
       } else {
-        await getSupabase().from("schedule_settings").insert(data);
+        await (getSupabase() as any).from("schedule_settings").insert(data);
       }
     },
     onSuccess: () => {

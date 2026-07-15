@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { format, startOfMonth, endOfMonth } from "date-fns";
-import { ptBR } from "date-fns/locale/pt-BR";
+import { format, endOfMonth } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAppointments } from "@/lib/supabase/queries/appointments";
 import { usePatients } from "@/hooks/use-patients";

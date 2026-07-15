@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { getSupabase } from "@/lib/supabase/client";
 
 function normPhone(v: string) {
@@ -61,7 +61,7 @@ export default function ExternalFormPage() {
     setLoading(true);
 
     try {
-      const supabase = getSupabase();
+      const supabase = getSupabase() as any;
       const patientId = makeId("p");
       const phone = normPhone(form.whatsapp);
 

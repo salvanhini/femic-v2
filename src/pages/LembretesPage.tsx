@@ -6,7 +6,7 @@ import { fetchPatients } from "@/lib/supabase/queries/patients";
 import { fetchServices } from "@/lib/supabase/queries/services";
 import { fmtDate, todayIso } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
-import type { Appointment, Patient, Service } from "@/lib/types/database";
+import type { Appointment } from "@/lib/types/database";
 
 function waLink(phone: string, text: string) {
   const p = phone.replace(/\D/g, "");

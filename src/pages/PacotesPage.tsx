@@ -40,7 +40,7 @@ export default function PacotesPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: PackageFormData) => {
-      const { error } = await getSupabase().from("session_packages").insert({
+      const { error } = await (getSupabase() as any).from("session_packages").insert({
         ...data,
         remaining_sessions: data.total_sessions,
         active: true,
@@ -57,7 +57,7 @@ export default function PacotesPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<SessionPackage> }) => {
-      const { error } = await getSupabase().from("session_packages").update(data).eq("id", id);
+      const { error } = await (getSupabase() as any).from("session_packages").update(data).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

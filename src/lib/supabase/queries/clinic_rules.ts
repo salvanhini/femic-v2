@@ -11,7 +11,7 @@ export async function fetchClinicRules() {
 }
 
 export async function createClinicRule(rule: Partial<ClinicRule>) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("clinic_rules")
     .insert(rule)
     .select()
@@ -21,7 +21,7 @@ export async function createClinicRule(rule: Partial<ClinicRule>) {
 }
 
 export async function updateClinicRule(id: string, updates: Partial<ClinicRule>) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("clinic_rules")
     .update(updates)
     .eq("id", id)

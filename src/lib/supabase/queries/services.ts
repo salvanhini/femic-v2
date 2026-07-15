@@ -39,7 +39,7 @@ export async function fetchPatientPackages(patientId: string) {
 }
 
 export async function createSessionPackage(pkg: { patient_id: string; service_id?: string | null; total_sessions: number; remaining_sessions: number }) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("session_packages")
     .insert(pkg)
     .select()
@@ -59,7 +59,7 @@ export async function fetchScheduleSettings() {
 }
 
 export async function upsertScheduleSettings(settings: Partial<ScheduleSettings>) {
-  const { error } = await getSupabase()
+  const { error } = await (getSupabase() as any)
     .from("schedule_settings")
     .upsert(settings, { onConflict: "id" });
   if (error) throw error;

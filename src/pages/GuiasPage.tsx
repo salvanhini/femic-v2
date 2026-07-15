@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
@@ -62,7 +62,7 @@ export default function GuiasPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const supabase = getSupabase();
+      const supabase = getSupabase() as any;
       const payload = {
         patient_id: form.patient_id,
         health_insurance_id: form.health_insurance_id,

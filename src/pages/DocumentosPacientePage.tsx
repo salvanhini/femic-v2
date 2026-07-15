@@ -210,7 +210,7 @@ export default function DocumentosPacientePage() {
   const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
   const patientMap = new Map(patients.map((p) => [p.id, p]));
 
-  const { data: documents = [], isLoading, error: queryError } = useQuery({
+  const { data: documents = [] } = useQuery({
     queryKey: ["patient_documents"],
     queryFn: async () => {
       const { data, error } = await getSupabase()
@@ -258,10 +258,10 @@ export default function DocumentosPacientePage() {
         obs: form.obs || null,
       };
       if (editing) {
-        const { error } = await getSupabase().from("patient_documents").update(payload).eq("id", editing.id);
+        const { error } = await (getSupabase() as any).from("patient_documents").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await getSupabase().from("patient_documents").insert(payload);
+        const { error } = await (getSupabase() as any).from("patient_documents").insert(payload);
         if (error) throw error;
       }
     },
@@ -287,11 +287,12 @@ export default function DocumentosPacientePage() {
 
   function openNew(docType?: string) {
     setEditing(null);
-    const tpl = DOC_TEMPLATES[docType || "personalizado"];
+    const key = docType || "personalizado";
+    const tpl = DOC_TEMPLATES[key] || DOC_TEMPLATES.personalizado;
     setForm({
       patient_id: "",
       title: tpl.title,
-      doc_type: docType || "personalizado",
+      doc_type: key,
       content: tpl.content,
       header_logo_url: "",
       signature_url: "",

@@ -58,7 +58,7 @@ export default function ServicosPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: ServiceFormData) => {
-      const { error } = await getSupabase().from("services").insert(data);
+      const { error } = await (getSupabase() as any).from("services").insert(data);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -71,7 +71,7 @@ export default function ServicosPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: ServiceFormData }) => {
-      const { error } = await getSupabase().from("services").update(data).eq("id", id);
+      const { error } = await (getSupabase() as any).from("services").update(data).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

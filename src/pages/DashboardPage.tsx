@@ -99,7 +99,6 @@ export default function DashboardPage() {
       packages.filter((p) => p.active && (p.remaining_sessions ?? 0) > 0).map((p) => p.patient_id)
     );
 
-    const now = new Date();
     const alerts: { patientId: string; patientName: string; lastDate: string; hasFuture: boolean }[] = [];
 
     for (const pid of activePatientIds) {
@@ -110,7 +109,8 @@ export default function DashboardPage() {
       if (patientAppts.length === 0) continue;
 
       const lastAppt = patientAppts[0];
-      const lastDate = new Date(lastAppt.appointment_date + "T00:00:00");
+      if (!lastAppt) continue;
+
       const hasFuture = patientAppts.some(
         (a) => a.appointment_date >= today && a.status !== "cancelado"
       );

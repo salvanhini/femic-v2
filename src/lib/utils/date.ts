@@ -1,4 +1,4 @@
-import { format, parseISO, startOfWeek, endOfWeek, addDays, formatDistanceToNow } from "date-fns";
+import { format, parseISO, startOfWeek, endOfWeek, addDays as fnsAddDays, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 
 export function fmtDate(dateStr: string): string {
@@ -27,7 +27,7 @@ export function weekEnd(date: Date = new Date()): Date {
 
 export function timeToMin(time: string): number {
   const [h, m] = time.slice(0, 5).split(":").map(Number);
-  return h * 60 + (m || 0);
+  return (h || 0) * 60 + (m || 0);
 }
 
 export function minToTime(minutes: number): string {

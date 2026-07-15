@@ -6,7 +6,7 @@ import { AppointmentModal } from "@/components/agenda/AppointmentModal";
 import { useAppointments, useMonthAppointments } from "@/hooks/use-appointments";
 import { usePatients } from "@/hooks/use-patients";
 import { useServices } from "@/hooks/use-services";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { fmtDate } from "@/lib/utils/date";
 import type { Appointment } from "@/lib/types/database";

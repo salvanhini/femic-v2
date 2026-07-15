@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import type { ClinicalAnamnesis } from "@/lib/types/database";
 
 export default function ProntuarioPage() {
-  const queryClient = useQueryClient();
   const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
   const activePatients = useMemo(() => patients.filter((p) => !p.archived), [patients]);
 

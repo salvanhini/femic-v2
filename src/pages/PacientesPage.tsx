@@ -71,7 +71,7 @@ export default function PacientesPage() {
       queryClient.invalidateQueries({ queryKey: ["patients"] });
       toast.success("Paciente removido");
     },
-    onError: (err) => {
+    onError: () => {
       toast.error("Paciente possui vínculos. Use inativar.");
     },
   });
