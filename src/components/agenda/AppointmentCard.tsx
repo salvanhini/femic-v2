@@ -12,10 +12,10 @@ interface AppointmentCardProps {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  agendado: "bg-amber-50 text-black border-l-4 border-l-amber-400 dark:bg-slate-700/70 dark:text-white",
-  confirmado: "bg-blue-50 text-black border-l-4 border-l-blue-400 dark:bg-slate-700/70 dark:text-white",
-  concluido: "bg-green-50 text-black border-l-4 border-l-green-400 opacity-75 dark:bg-slate-700/70 dark:text-white",
-  cancelado: "bg-red-50 text-black border-l-4 border-l-red-400 opacity-60 dark:bg-slate-700/70 dark:text-white",
+  agendado: "bg-amber-100 text-amber-950 border-l-4 border-l-amber-500 dark:bg-amber-950/70 dark:text-amber-50",
+  confirmado: "bg-sky-100 text-sky-950 border-l-4 border-l-sky-500 dark:bg-sky-950/70 dark:text-sky-50",
+  concluido: "bg-emerald-100 text-emerald-950 border-l-4 border-l-emerald-500 dark:bg-emerald-950/70 dark:text-emerald-50",
+  cancelado: "bg-rose-100 text-rose-950 border-l-4 border-l-rose-500 dark:bg-rose-950/70 dark:text-rose-50",
 };
 
 function shortName(name: string): string {

@@ -56,11 +56,11 @@ function appointment(status: string): Appointment {
 
 describe("AppointmentCard", () => {
   it.each([
-    ["agendado", "border-l-amber-400"],
-    ["confirmado", "border-l-blue-400"],
-    ["concluido", "border-l-green-400"],
-    ["cancelado", "border-l-red-400"],
-  ])("uses the correct status accent for %s", (status, accentClass) => {
+    ["agendado", "border-l-amber-500", "bg-amber-100"],
+    ["confirmado", "border-l-sky-500", "bg-sky-100"],
+    ["concluido", "border-l-emerald-500", "bg-emerald-100"],
+    ["cancelado", "border-l-rose-500", "bg-rose-100"],
+  ])("uses the correct status accent for %s", (status, accentClass, backgroundClass) => {
     render(
       <AppointmentCard
         appointment={appointment(status)}
@@ -74,6 +74,6 @@ describe("AppointmentCard", () => {
 
     const card = screen.getByRole("button", { name: /agendamento de maria da silva/i });
     expect(card).toHaveClass(accentClass);
-    expect(card).toHaveClass("dark:bg-slate-700/70", "dark:text-white");
+    expect(card).toHaveClass(backgroundClass);
   });
 });

@@ -11,9 +11,10 @@ export async function fetchPatients() {
 }
 
 export async function createPatient(patient: Partial<Patient>) {
+  const id = patient.id || `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   const { data, error } = await getSupabase()
     .from("patients")
-    .insert(patient as never)
+    .insert({ ...patient, id } as never)
     .select()
     .single();
   if (error) throw error;

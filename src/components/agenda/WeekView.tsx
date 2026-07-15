@@ -32,10 +32,10 @@ const HOUR_HEIGHT = 80;
 const DAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const STATUS_BG: Record<string, string> = {
-  agendado: "bg-amber-50 text-black border-l-amber-400 dark:bg-slate-700/70 dark:text-white",
-  confirmado: "bg-blue-50 text-black border-l-blue-400 dark:bg-slate-700/70 dark:text-white",
-  concluido: "bg-green-50 text-black border-l-green-400 opacity-75 dark:bg-slate-700/70 dark:text-white",
-  cancelado: "bg-red-50 text-black border-l-red-400 opacity-60 dark:bg-slate-700/70 dark:text-white",
+  agendado: "bg-amber-100 text-amber-950 border-l-amber-500 dark:bg-amber-950/70 dark:text-amber-50",
+  confirmado: "bg-sky-100 text-sky-950 border-l-sky-500 dark:bg-sky-950/70 dark:text-sky-50",
+  concluido: "bg-emerald-100 text-emerald-950 border-l-emerald-500 dark:bg-emerald-950/70 dark:text-emerald-50",
+  cancelado: "bg-rose-100 text-rose-950 border-l-rose-500 dark:bg-rose-950/70 dark:text-rose-50",
 };
 
 const STORAGE_KEY = "femic_agenda_view";
@@ -260,10 +260,10 @@ export function WeekView({
 
       {/* Legenda de cores */}
       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-amber-300 bg-amber-100 dark:border-amber-700 dark:bg-amber-900" /> Agendado</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-blue-300 bg-blue-100 dark:border-blue-700 dark:bg-blue-900" /> Confirmado</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-green-300 bg-green-100 dark:border-green-700 dark:bg-green-900" /> Concluído</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-red-300 bg-red-100 dark:border-red-700 dark:bg-red-900" /> Cancelado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-amber-400 bg-amber-200 dark:border-amber-700 dark:bg-amber-900" /> Agendado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-sky-400 bg-sky-200 dark:border-sky-700 dark:bg-sky-900" /> Confirmado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-emerald-400 bg-emerald-200 dark:border-emerald-700 dark:bg-emerald-900" /> Concluído</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-rose-400 bg-rose-200 dark:border-rose-700 dark:bg-rose-900" /> Cancelado</span>
       </div>
 
       {/* Slot Summary Dialog */}

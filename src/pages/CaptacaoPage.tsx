@@ -25,6 +25,14 @@ function waLink(phone: string, text: string) {
 const WA_TEMPLATE = (name: string, date: string, time: string) =>
   `Olá ${name}, tudo bem? 😊\n\nSua avaliação na FEMIC Fisioterapia foi agendada para *${date} às ${time}*.\n\nConfirme sua presença respondendo esta mensagem.\n\nQualquer dúvida, estamos à disposição!`;
 
+function scheduledDateTime(notes: string | null): { date: string; time: string } | null {
+  const match = notes?.match(/Agendado para (\d{4}-\d{2}-\d{2}) às (\d{2}:\d{2})/);
+  const date = match?.[1];
+  const time = match?.[2];
+  if (!date || !time) return null;
+  return { date: fmtDate(date), time };
+}
+
 export default function CaptacaoPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -96,7 +104,9 @@ export default function CaptacaoPage() {
 
   const scheduleMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedTask || !selectedTask.patient_id) return;
+      if (!selectedTask || !selectedTask.patient_id) {
+        throw new Error("Paciente não vinculado");
+      }
       const service = services.find((s: Service) => s.id === scheduleService);
       const endTime = addMinutes(scheduleTime, service?.duration_minutes || 45);
 
@@ -111,19 +121,22 @@ export default function CaptacaoPage() {
         duration_minutes: service?.duration_minutes || 45,
       });
 
+      const scheduleNote = `Agendado para ${scheduleDate} às ${scheduleTime}`;
+      const notes = [selectedTask.notes, scheduleNote].filter(Boolean).join("\n");
+
       await updateTask(selectedTask.id, {
         status: "scheduled",
-        notes: `Agendado para ${scheduleDate} às ${scheduleTime}`,
+        notes,
       });
 
-      return appointment;
+      return { appointment, notes };
     },
-    onSuccess: () => {
+    onSuccess: ({ notes }) => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["assistant_tasks"] });
       toast.success("Avaliação agendada com sucesso");
       setScheduleOpen(false);
-      setSelectedTask(null);
+      setSelectedTask((task) => task ? { ...task, status: "scheduled", notes } : null);
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Erro ao agendar");
@@ -136,7 +149,12 @@ export default function CaptacaoPage() {
       toast.error("Paciente sem WhatsApp cadastrado");
       return;
     }
-    const msg = WA_TEMPLATE(task.patient_name || "", "", "");
+    const scheduled = scheduledDateTime(task.notes);
+    if (!scheduled) {
+      toast.error("Agende a avaliação antes de enviar a confirmação pelo WhatsApp");
+      return;
+    }
+    const msg = WA_TEMPLATE(task.patient_name || "", scheduled.date, scheduled.time);
     window.open(waLink(phone, msg), "_blank");
   }
 
