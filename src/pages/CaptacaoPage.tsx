@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { fetchTasks, updateTask } from "@/lib/supabase/queries/assistants";
+import { deleteTask, fetchTasks, updateTask } from "@/lib/supabase/queries/assistants";
 import { fetchPatients } from "@/lib/supabase/queries/patients";
 import { createAppointment } from "@/lib/supabase/queries/appointments";
 import { fetchServices } from "@/lib/supabase/queries/services";
@@ -55,19 +55,41 @@ export default function CaptacaoPage() {
     !search || t.patient_name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const pendingTasks = filtered.filter((t) => t.status !== "scheduled");
+  const pendingTasks = filtered.filter((t) => t.status === "pending");
+  const resolvedTasks = (tasks as AssistantTask[]).filter(
+    (t) => t.status === "scheduled" || t.status === "done"
+  );
 
-  const clearPendingMutation = useMutation({
+  const clearResolvedMutation = useMutation({
     mutationFn: async () => {
-      const pending = (tasks as AssistantTask[]).filter((t) => t.status !== "scheduled");
-      for (const t of pending) {
-        await updateTask(t.id, { status: "done" });
+      for (const task of resolvedTasks) {
+        await deleteTask(task.id);
       }
-      return pending.length;
+      return resolvedTasks.length;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ["assistant_tasks"] });
-      toast.success(`${count} pendência(s) limpa(s)`);
+      toast.success(`${count} solicitação(ões) resolvida(s) removida(s)`);
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
+  });
+
+  const resolveTaskMutation = useMutation({
+    mutationFn: (id: string) => updateTask(id, { status: "done" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assistant_tasks"] });
+      setSelectedTask(null);
+      toast.success("Solicitação marcada como resolvida");
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: (id: string) => deleteTask(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assistant_tasks"] });
+      setSelectedTask(null);
+      toast.success("Solicitação removida");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
   });
@@ -152,13 +174,13 @@ export default function CaptacaoPage() {
               size="sm"
               className="text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={() => {
-                if (confirm(`Limpar ${pendingTasks.length} pendência(s)?`)) {
-                  clearPendingMutation.mutate();
+                if (confirm(`Remover ${resolvedTasks.length} solicitação(ões) já resolvida(s) ou agendada(s)?`)) {
+                  clearResolvedMutation.mutate();
                 }
               }}
-              disabled={clearPendingMutation.isPending}
+              disabled={clearResolvedMutation.isPending}
             >
-              Limpar pendências
+              Limpar resolvidas
             </Button>
           )}
           <input
@@ -190,9 +212,11 @@ export default function CaptacaoPage() {
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                       t.status === "scheduled"
                         ? "bg-green-50 text-green-600"
+                        : t.status === "done"
+                        ? "bg-slate-100 text-slate-600"
                         : "bg-amber-50 text-amber-600"
                     }`}>
-                      {t.status === "scheduled" ? "Agendado" : "Pendente"}
+                      {t.status === "scheduled" ? "Agendado" : t.status === "done" ? "Resolvido" : "Pendente"}
                     </span>
                   </div>
                   {t.created_at && (
@@ -262,7 +286,9 @@ export default function CaptacaoPage() {
                             };
                             return `${days[s.day] || s.day} - ${s.period === "manha" ? "Manhã" : "Tarde"}`;
                           }
-                        } catch {}
+                        } catch {
+                          return "—";
+                        }
                         return "—";
                       })()}
                     </p>
@@ -271,7 +297,7 @@ export default function CaptacaoPage() {
 
                 <div className="text-xs text-muted-foreground">
                   <p>WhatsApp: {selectedTask.phone ? formatPhone(selectedTask.phone) : "—"}</p>
-                  <p>Status: {selectedTask.status === "scheduled" ? "Agendado" : "Pendente"}</p>
+                  <p>Status: {selectedTask.status === "scheduled" ? "Agendado" : selectedTask.status === "done" ? "Resolvido" : "Pendente"}</p>
                   {selectedTask.created_at && (
                     <p>Solicitado em: {fmtDate(selectedTask.created_at)}</p>
                   )}
@@ -291,6 +317,22 @@ export default function CaptacaoPage() {
             {selectedTask?.phone && (
               <Button variant="outline" onClick={() => handleWhatsApp(selectedTask)}>
                 WhatsApp
+              </Button>
+            )}
+            {selectedTask?.status === "pending" && (
+              <Button variant="outline" onClick={() => resolveTaskMutation.mutate(selectedTask.id)} disabled={resolveTaskMutation.isPending}>
+                Marcar como resolvida
+              </Button>
+            )}
+            {selectedTask && (
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (confirm("Remover esta solicitação de captação?")) deleteTaskMutation.mutate(selectedTask.id);
+                }}
+                disabled={deleteTaskMutation.isPending}
+              >
+                Excluir
               </Button>
             )}
           </DialogFooter>
