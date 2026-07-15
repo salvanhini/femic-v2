@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { fetchScheduleSettings } from "@/lib/supabase/queries/services";
 import { getSupabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import type { ScheduleSettings } from "@/lib/types/database";
+import ServicosPage from "@/pages/ServicosPage";
 
 const DAYS = [
   { value: "0", label: "Dom" },
@@ -31,9 +33,26 @@ interface TableStatus {
   error?: string;
 }
 
+type SettingsTab = "schedule" | "services" | "health";
+
+const tabFromSearchParam: Record<string, SettingsTab> = {
+  horarios: "schedule",
+  servicos: "services",
+  saude: "health",
+};
+
+const searchParamFromTab: Record<SettingsTab, string> = {
+  schedule: "horarios",
+  services: "servicos",
+  health: "saude",
+};
+
 export default function ConfiguracoesPage() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"schedule" | "health">("schedule");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<SettingsTab>(
+    tabFromSearchParam[searchParams.get("aba") || ""] || "schedule"
+  );
 
   const { data: settings } = useQuery({
     queryKey: ["schedule_settings"],
@@ -60,12 +79,22 @@ export default function ConfiguracoesPage() {
     }
   }, [settings]);
 
+  useEffect(() => {
+    const tabFromUrl = tabFromSearchParam[searchParams.get("aba") || ""] || "schedule";
+    setTab((currentTab) => currentTab === tabFromUrl ? currentTab : tabFromUrl);
+  }, [searchParams]);
+
+  function selectTab(nextTab: SettingsTab) {
+    setTab(nextTab);
+    setSearchParams(nextTab === "schedule" ? {} : { aba: searchParamFromTab[nextTab] });
+  }
+
   const saveMutation = useMutation({
     mutationFn: async (data: Partial<ScheduleSettings>) => {
       if (settings?.id) {
-        await (getSupabase() as any).from("schedule_settings").update(data).eq("id", settings.id);
+        await getSupabase().from("schedule_settings").update(data as never).eq("id", settings.id);
       } else {
-        await (getSupabase() as any).from("schedule_settings").insert(data);
+        await getSupabase().from("schedule_settings").insert(data as never);
       }
     },
     onSuccess: () => {
@@ -131,15 +160,23 @@ export default function ConfiguracoesPage() {
           className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
             tab === "schedule" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
           }`}
-          onClick={() => setTab("schedule")}
+          onClick={() => selectTab("schedule")}
         >
           Horários
         </button>
         <button
           className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
+            tab === "services" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
+          }`}
+          onClick={() => selectTab("services")}
+        >
+          Serviços
+        </button>
+        <button
+          className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
             tab === "health" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
           }`}
-          onClick={() => setTab("health")}
+          onClick={() => selectTab("health")}
         >
           Saúde do Sistema
         </button>
@@ -195,6 +232,8 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
       )}
+
+      {tab === "services" && <ServicosPage />}
 
       {tab === "health" && (
         <div className="space-y-4">

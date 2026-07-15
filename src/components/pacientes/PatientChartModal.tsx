@@ -6,7 +6,7 @@ import { fetchAnamnesis, upsertAnamnesis, fetchEvolutions, createEvolution, dele
 import { fetchPatientPackages, createSessionPackage } from "@/lib/supabase/queries/services";
 import { fetchServices } from "@/lib/supabase/queries/services";
 import { todayIso, fmtDate } from "@/lib/utils/date";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -309,16 +309,18 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {packages.map((pkg) => {
+                  {packages.map((pkg, index) => {
                     const remaining = pkg.remaining_sessions ?? 0;
                     const total = pkg.total_sessions ?? 0;
                     const used = total - remaining;
                     const pct = total > 0 ? (used / total) * 100 : 0;
+                    const packageStatus = remaining === 0 ? "Concluído" : pkg.active ? "Em andamento" : "Encerrado";
                     return (
                       <div key={pkg.id} className="rounded-lg border p-4">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-bold">
+                              <span className="mr-2 text-femic-navy">Pacote #{index + 1}</span>
                               {total} sessões
                               {pkg.service_id && (
                                 <span className="ml-2 text-xs font-normal text-muted-foreground">
@@ -331,13 +333,13 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
                             </p>
                           </div>
                           <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                            remaining === 0
+                            remaining === 0 || !pkg.active
                               ? "bg-gray-100 text-gray-600"
                               : remaining <= 3
                               ? "bg-red-100 text-red-700"
                               : "bg-green-100 text-green-700"
                           }`}>
-                            {remaining} restantes
+                            {packageStatus} · {remaining} restantes
                           </span>
                         </div>
                         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">

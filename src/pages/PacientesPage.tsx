@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
 import { fetchPatients, createPatient, updatePatient } from "@/lib/supabase/queries/patients";
+import { formatBrazilianPhone, phoneDigits } from "@/lib/utils/phone";
 import { PatientChartModal } from "@/components/pacientes/PatientChartModal";
 import type { Patient } from "@/lib/types/database";
 
@@ -24,9 +25,10 @@ export default function PacientesPage() {
       if (!showArchived && p.archived) return false;
       if (!search) return true;
       const q = search.toLowerCase();
+      const phoneSearch = phoneDigits(search);
       return (
         p.name.toLowerCase().includes(q) ||
-        (p.whatsapp || "").includes(q)
+        (phoneSearch.length > 0 && phoneDigits(p.whatsapp || "").includes(phoneSearch))
       );
     });
   }, [patients, search, showArchived]);
@@ -78,14 +80,16 @@ export default function PacientesPage() {
 
   function openEdit(p: Patient) {
     setEditing(p);
-    setForm({ name: p.name, whatsapp: p.whatsapp || "", pathology: p.pathology || "", birth_date: p.birth_date || "", referral_source: p.referral_source || "" });
+    setForm({ name: p.name, whatsapp: formatBrazilianPhone(p.whatsapp || ""), pathology: p.pathology || "", birth_date: p.birth_date || "", referral_source: p.referral_source || "" });
   }
 
   function handleSave() {
     if (!form.name.trim()) return toast.warning("Informe o nome");
+    const phone = phoneDigits(form.whatsapp);
+    if (phone && phone.length < 10) return toast.warning("Informe um WhatsApp com DDD válido");
     const payload = {
       name: form.name.trim(),
-      whatsapp: form.whatsapp.trim() || null,
+      whatsapp: phone ? formatBrazilianPhone(phone) : null,
       pathology: form.pathology.trim() || null,
       birth_date: form.birth_date || null,
       referral_source: form.referral_source.trim() || null,
@@ -133,10 +137,12 @@ export default function PacientesPage() {
         <div className="w-40">
           <label className="mb-1 text-xs font-bold text-muted-foreground">WhatsApp</label>
           <input
+            inputMode="tel"
+            maxLength={15}
             className="w-full rounded-lg border px-3 py-2 text-sm"
             placeholder="(16) 99999-9999"
             value={form.whatsapp}
-            onChange={(e) => setForm((f) => ({ ...f, whatsapp: e.target.value }))}
+            onChange={(e) => setForm((f) => ({ ...f, whatsapp: formatBrazilianPhone(e.target.value) }))}
           />
         </div>
         <div className="flex-1">
@@ -197,7 +203,7 @@ setForm({ name: "", whatsapp: "", pathology: "", birth_date: "", referral_source
                 {p.name}
               </p>
               <p className="text-sm text-muted-foreground">
-                {p.whatsapp || "Sem WhatsApp"} · {p.pathology || "Sem patologia"}
+                {p.whatsapp ? formatBrazilianPhone(p.whatsapp) : "Sem WhatsApp"} · {p.pathology || "Sem patologia"}
                 {p.birth_date && ` · Nasc: ${p.birth_date}`}
                 {p.referral_source && ` · Origem: ${p.referral_source}`}
                 {p.archived && " · Inativo"}

@@ -87,7 +87,7 @@ export function AppointmentModal({
     if (service && watchedStartTime) {
       form.setValue("end_time", addMinutes(watchedStartTime, service.duration_minutes || 45));
     }
-  }, [watchedServiceId, watchedStartTime, services]);
+  }, [form, watchedServiceId, watchedStartTime, services]);
 
   useEffect(() => {
     if (appointment) {
@@ -177,7 +177,7 @@ export function AppointmentModal({
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] max-w-lg flex-col overflow-hidden">
         <DialogHeader>
           <div>
             <DialogDescription>Agenda FEMIC</DialogDescription>
@@ -188,8 +188,8 @@ export function AppointmentModal({
           </DialogClose>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSave)}>
-          <DialogBody>
+        <form onSubmit={form.handleSubmit(handleSave)} className="flex min-h-0 flex-1 flex-col">
+          <DialogBody className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
             <div>
               <Label className="mb-1.5 block">Paciente *</Label>
               <select
@@ -207,12 +207,12 @@ export function AppointmentModal({
             </div>
 
             {activePackage && (
-              <div className={`rounded-lg p-3 text-sm ${watchedStatus === "concluido" ? "bg-green-50" : "bg-blue-50"}`}>
+              <div className={`rounded-lg p-3 text-sm ${watchedStatus === "concluido" ? "bg-green-50 dark:bg-green-950/50" : "bg-blue-50 dark:bg-blue-950/50"}`}>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-blue-800">Pacote ativo</span>
+                  <span className="font-bold text-blue-800 dark:text-blue-100">Pacote ativo</span>
                   <span className="text-lg font-black text-blue-900">{activePackage.remaining_sessions}</span>
                 </div>
-                <p className="text-xs text-blue-700 mt-0.5">
+                <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-200">
                   {activePackage.remaining_sessions} sessão(ns) restante(s)
                   {watchedStatus === "concluido" && " — será consumida 1 sessão"}
                 </p>
@@ -338,7 +338,7 @@ export function AppointmentModal({
             </div>
           </DialogBody>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 px-4 py-3 sm:px-5">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>

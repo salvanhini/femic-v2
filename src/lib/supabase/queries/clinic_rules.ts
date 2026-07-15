@@ -5,15 +5,15 @@ export async function fetchClinicRules() {
   const { data, error } = await getSupabase()
     .from("clinic_rules")
     .select("*")
-    .order("priority", { ascending: true, nullsLast: true });
+    .order("priority", { ascending: true, nullsFirst: false });
   if (error) throw error;
   return data as ClinicRule[];
 }
 
 export async function createClinicRule(rule: Partial<ClinicRule>) {
-  const { data, error } = await (getSupabase() as any)
+  const { data, error } = await getSupabase()
     .from("clinic_rules")
-    .insert(rule)
+    .insert(rule as never)
     .select()
     .single();
   if (error) throw error;
@@ -21,9 +21,9 @@ export async function createClinicRule(rule: Partial<ClinicRule>) {
 }
 
 export async function updateClinicRule(id: string, updates: Partial<ClinicRule>) {
-  const { data, error } = await (getSupabase() as any)
+  const { data, error } = await getSupabase()
     .from("clinic_rules")
-    .update(updates)
+    .update(updates as never)
     .eq("id", id)
     .select()
     .single();

@@ -17,6 +17,8 @@ No primeiro acesso, informe a URL e a **anon key** do seu projeto Supabase. Essa
 
 ## Publicar no GitHub — passo a passo simples
 
+> Requisito local: use Node.js 22 (`nvm use`, quando utilizar nvm) para executar build e testes na mesma versão da publicação.
+
 ### 1. Criar o repositório
 
 1. Entre em [github.com/new](https://github.com/new).
