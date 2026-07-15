@@ -4,7 +4,7 @@
   "description": "Bot WhatsApp FEMIC Fisioterapia",
   "main": "index.js",
   "engines": { "node": ">=20" },
-  "scripts": { "start": "node index.js" },
+  "scripts": { "start": "node index.js", "test": "node --test tests/*.js" },
   "dependencies": {
     "@whiskeysockets/baileys": "6.7.22",
     "@supabase/supabase-js": "2.108.2",

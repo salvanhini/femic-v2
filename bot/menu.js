@@ -14,8 +14,12 @@ function detectHuman(text) {
 async function notifyTelegram(phone, msg, tipo) {
   if (!TG_TOKEN || !TG_CHAT) return;
   const esc = s => String(s || '').replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
-  const emoji = '👤';
-  const label = 'PACIENTE QUER FALAR COM HUMANO';
+  const labels = {
+    human: ['👤', 'PACIENTE QUER FALAR COM A EQUIPE'],
+    remarcar: ['📅', 'PEDIDO DE REMARCAÇÃO OU CANCELAMENTO'],
+    tarefa: ['⏳', 'PACIENTE AGUARDA AÇÃO DA EQUIPE'],
+  };
+  const [emoji, label] = labels[tipo] || labels.human;
   const text = [`${emoji} *${label}*`, '━━━━━━━━━━━━━━━━━━━', `📱 *WhatsApp:* ${esc(phone)}`, `💬 *Msg:* ${esc((msg || '').slice(0, 200))}`, '━━━━━━━━━━━━━━━━━━━', '✅ Inbox atualizado.'].join('\n');
   try {
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: Number(TG_CHAT), text, parse_mode: 'Markdown' }) });

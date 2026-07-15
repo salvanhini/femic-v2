@@ -1,13 +1,17 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchAppointments } from "@/lib/supabase/queries/appointments";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createAppointment, fetchAppointments } from "@/lib/supabase/queries/appointments";
 import { fetchSessionPackages } from "@/lib/supabase/queries/services";
+import { buildSessionReplacementAlert, type SessionReplacementAlert } from "@/lib/appointments/session-replacement";
 import { usePatients } from "@/hooks/use-patients";
 import { useServices } from "@/hooks/use-services";
-import { todayIso, fmtTime } from "@/lib/utils/date";
+import { todayIso, fmtDate, fmtTime } from "@/lib/utils/date";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, AlertCircle, Settings2, CalendarDays, UsersRound, CheckCircle2, Clock3, XCircle } from "lucide-react";
+import { toast } from "sonner";
+import { Dialog, DialogBody, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const STORAGE_KEY = "femic_dashboard_thresholds";
 
@@ -26,6 +30,7 @@ function saveThresholds(t: { critical: number; low: number }) {
 }
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
   const today = todayIso();
   const monthStart = startOfMonth(new Date()).toISOString().slice(0, 10);
   const monthEnd = endOfMonth(new Date()).toISOString().slice(0, 10);
@@ -34,6 +39,8 @@ export default function DashboardPage() {
   const [editingThresholds, setEditingThresholds] = useState(false);
   const [tempCritical, setTempCritical] = useState(String(thresholds.critical));
   const [tempLow, setTempLow] = useState(String(thresholds.low));
+  const [replacementAlert, setReplacementAlert] = useState<SessionReplacementAlert | null>(null);
+  const [selectedSuggestionIds, setSelectedSuggestionIds] = useState<Set<string>>(new Set());
 
   const { data: todayAppts = [] } = useQuery({
     queryKey: ["appointments", "today", today],
@@ -95,40 +102,60 @@ export default function DashboardPage() {
     return remaining === 0 && p.active;
   });
 
-  // Último agendamento por paciente (pacientes ativos com pacote)
-  const lastAppointmentAlerts = useMemo(() => {
-    const activePatientIds = new Set(
-      packages.filter((p) => p.active && (p.remaining_sessions ?? 0) > 0).map((p) => p.patient_id)
-    );
+  const replacementAlerts = useMemo(
+    () => packages
+      .map((pkg) => buildSessionReplacementAlert(pkg, allAppts, today))
+      .filter((alert): alert is SessionReplacementAlert => !!alert),
+    [allAppts, packages, today]
+  );
 
-    const alerts: { patientId: string; patientName: string; lastDate: string; hasFuture: boolean }[] = [];
+  const createReplacementMutation = useMutation({
+    mutationFn: async () => {
+      if (!replacementAlert) throw new Error("Nenhuma reposição selecionada");
+      const selected = replacementAlert.suggestions.filter((suggestion) => selectedSuggestionIds.has(suggestion.id));
+      if (!selected.length) throw new Error("Selecione ao menos uma sessão para criar");
 
-    for (const pid of activePatientIds) {
-      const patientAppts = allAppts
-        .filter((a) => a.patient_id === pid)
-        .sort((a, b) => b.appointment_date.localeCompare(a.appointment_date));
-
-      if (patientAppts.length === 0) continue;
-
-      const lastAppt = patientAppts[0];
-      if (!lastAppt) continue;
-
-      const hasFuture = patientAppts.some(
-        (a) => a.appointment_date >= today && a.status !== "cancelado"
-      );
-
-      if (!hasFuture) {
-        alerts.push({
-          patientId: pid,
-          patientName: patientMap.get(pid)?.name || "Paciente",
-          lastDate: lastAppt.appointment_date,
-          hasFuture: false,
+      for (const suggestion of selected) {
+        await createAppointment({
+          patient_id: suggestion.patient_id,
+          service_id: suggestion.service_id,
+          appointment_date: suggestion.appointment_date,
+          start_time: suggestion.start_time,
+          end_time: suggestion.end_time,
+          duration_minutes: suggestion.duration_minutes,
+          service_price_at_time: suggestion.service_price_at_time,
+          status: "agendado",
+          notes: "Reposição automática de sessão do pacote",
         });
       }
-    }
+      return selected.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      setReplacementAlert(null);
+      setSelectedSuggestionIds(new Set());
+      toast.success(`${count} sessão(ões) adicionada(s) à agenda`);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Não foi possível criar as sessões"),
+  });
 
-    return alerts;
-  }, [allAppts, packages, patientMap, today]);
+  function openReplacement(alert: SessionReplacementAlert) {
+    setReplacementAlert(alert);
+    setSelectedSuggestionIds(new Set(
+      alert.suggestions
+        .filter((suggestion) => suggestion.conflicting_appointment_ids.length === 0)
+        .map((suggestion) => suggestion.id)
+    ));
+  }
+
+  function toggleSuggestion(id: string) {
+    setSelectedSuggestionIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function saveThresholdsAndClose() {
     const c = Math.max(1, parseInt(tempCritical) || 3);
@@ -241,7 +268,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {emptyPackages.length === 0 && criticalPackages.length === 0 && lowPackages.length === 0 && lastAppointmentAlerts.length === 0 ? (
+        {emptyPackages.length === 0 && criticalPackages.length === 0 && lowPackages.length === 0 && replacementAlerts.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum alerta pendente.</p>
         ) : (
           <div className="space-y-3">
@@ -278,20 +305,77 @@ export default function DashboardPage() {
                 </p>
               </div>
             ))}
-            {lastAppointmentAlerts.map((alert) => (
+            {replacementAlerts.map((alert) => (
               <div
-                key={alert.patientId}
+                key={alert.package.id}
                 className="flex items-start gap-3 rounded-lg border border-purple-200 bg-purple-50 p-3"
               >
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
-                <p className="text-sm font-medium text-purple-700">
-                  <strong>{alert.patientName}</strong> — último atendimento em {alert.lastDate}. Considere agendar nova sessão.
-                </p>
+                <div className="flex flex-1 flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-purple-700">
+                    <strong>{patientMap.get(alert.package.patient_id)?.name || "Paciente"}</strong> — faltam agendar {alert.missing_count} sessão(ões) do pacote.
+                  </p>
+                  <Button size="sm" variant="outline" className="border-purple-300 bg-white text-purple-700 hover:bg-purple-100" onClick={() => openReplacement(alert)}>
+                    Completar sessões
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog open={!!replacementAlert} onOpenChange={(open) => !open && setReplacementAlert(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <div>
+              <DialogDescription>Reposição de sessões do pacote</DialogDescription>
+              <DialogTitle>{replacementAlert ? patientMap.get(replacementAlert.package.patient_id)?.name || "Paciente" : ""}</DialogTitle>
+            </div>
+            <DialogClose className="rounded-lg p-2 hover:bg-accent">✕</DialogClose>
+          </DialogHeader>
+          <DialogBody>
+            {replacementAlert && (
+              <div className="space-y-3">
+                {replacementAlert.suggestions.length === 0 ? (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                    Não há histórico de sessões suficiente para sugerir horários. Crie o próximo agendamento manualmente.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">Confira as sugestões antes de adicionar à agenda. Horários com conflito começam desmarcados.</p>
+                    {replacementAlert.suggestions.map((suggestion) => {
+                      const conflicts = suggestion.conflicting_appointment_ids
+                        .map((id) => allAppts.find((appointment) => appointment.id === id))
+                        .filter((appointment) => !!appointment)
+                        .map((appointment) => patientMap.get(appointment.patient_id)?.name || "Outro paciente");
+                      const hasConflict = conflicts.length > 0;
+                      return (
+                        <label key={suggestion.id} className={cn("flex cursor-pointer gap-3 rounded-lg border p-3", hasConflict ? "border-amber-300 bg-amber-50" : "bg-card")}>
+                          <input type="checkbox" checked={selectedSuggestionIds.has(suggestion.id)} onChange={() => toggleSuggestion(suggestion.id)} className="mt-1" />
+                          <span className="min-w-0 flex-1 text-sm">
+                            <strong>{fmtDate(suggestion.appointment_date)} às {fmtTime(suggestion.start_time)}</strong>
+                            {hasConflict && <span className="mt-1 block text-xs text-amber-800">Conflito com: {conflicts.join(", ")}</span>}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReplacementAlert(null)}>Cancelar</Button>
+            <Button
+              onClick={() => createReplacementMutation.mutate()}
+              disabled={!replacementAlert?.suggestions.length || selectedSuggestionIds.size === 0 || createReplacementMutation.isPending}
+            >
+              {createReplacementMutation.isPending ? "Adicionando..." : `Adicionar ${selectedSuggestionIds.size} sessão(ões)`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

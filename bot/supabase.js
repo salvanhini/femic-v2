@@ -103,14 +103,16 @@ async function patientExists(phone) {
   return !!(data && data.length > 0);
 }
 
-async function pollTask(phone, ms = 120000) {
+async function pollTask(phone, ms = 120000, after = null) {
   const d = phone.replace(/\D/g, '');
   const last8 = d.slice(-8);
   const end = Date.now() + ms;
   return new Promise(resolve => {
     const check = async () => {
       if (Date.now() >= end) { resolve(null); return; }
-      const { data, error } = await sb.from('assistant_tasks').select('id,title,patient_name,phone,notes,created_at').or(`phone.eq.${d},phone.ilike.%${last8}`).eq('origin', 'captacao_publica').order('created_at', { ascending: false }).limit(1);
+      let query = sb.from('assistant_tasks').select('id,patient_name,phone,notes,created_at').or(`phone.eq.${d},phone.ilike.%${last8}`).eq('origin', 'captacao_publica');
+      if (after) query = query.gt('created_at', after);
+      const { data, error } = await query.order('created_at', { ascending: false }).limit(1);
       if (!error && data?.length > 0 && (data[0].phone || '').replace(/\D/g, '').slice(-8) === last8) { resolve(data[0]); return; }
       setTimeout(check, 3000);
     };
