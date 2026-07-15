@@ -56,19 +56,21 @@ export default function Layout() {
   const title = pageTitles[location.pathname] || "FEMIC";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background">
       <Sidebar
         items={navItems}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <div className="flex flex-1 flex-col">
+      <div className="min-w-0 flex flex-1 flex-col">
         <Topbar
           title={title}
           onMenuClick={() => setSidebarOpen((prev) => !prev)}
         />
-        <main className="flex-1 p-4 sm:p-6">
-          <Outlet />
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-[1600px]">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
