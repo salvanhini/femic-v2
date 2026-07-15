@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { fetchAnamnesis, upsertAnamnesis, fetchEvolutions, createEvolution, deleteEvolution } from "@/lib/supabase/queries/clinical";
+import { fetchPatientPackages, createSessionPackage } from "@/lib/supabase/queries/services";
+import { fetchServices } from "@/lib/supabase/queries/services";
 import { todayIso, fmtDate } from "@/lib/utils/date";
-import type { Patient, ClinicalAnamnesis } from "@/lib/types/database";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogClose } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import type { Patient } from "@/lib/types/database";
 
 interface PatientChartModalProps {
   patient: Patient;
@@ -11,7 +18,11 @@ interface PatientChartModalProps {
 }
 
 export function PatientChartModal({ patient, onClose }: PatientChartModalProps) {
-  const [tab, setTab] = useState<"anamnesis" | "evolutions">("anamnesis");
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState("anamnesis");
+  const [newPackageOpen, setNewPackageOpen] = useState(false);
+  const [pkgTotal, setPkgTotal] = useState("10");
+  const [pkgService, setPkgService] = useState("");
 
   const { data: anamnesis, refetch: refetchAnam } = useQuery({
     queryKey: ["anamnesis", patient.id],
@@ -23,8 +34,18 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
     queryFn: () => fetchEvolutions(patient.id),
   });
 
+  const { data: packages = [], refetch: refetchPkgs } = useQuery({
+    queryKey: ["session_packages", patient.id],
+    queryFn: () => fetchPatientPackages(patient.id),
+  });
+
+  const { data: services = [] } = useQuery({
+    queryKey: ["services"],
+    queryFn: fetchServices,
+  });
+
   const upsertMutation = useMutation({
-    mutationFn: (data: Partial<ClinicalAnamnesis>) => upsertAnamnesis(data),
+    mutationFn: (data: Parameters<typeof upsertAnamnesis>[0]) => upsertAnamnesis(data),
     onSuccess: () => {
       refetchAnam();
       toast.success("Anamnese salva");
@@ -32,46 +53,64 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
     onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
   });
 
-  const [chiefComplaint, setChiefComplaint] = useState("");
-  const [history, setHistory] = useState("");
-  const [diagnosis, setDiagnosis] = useState("");
-  const [limitations, setLimitations] = useState("");
-  const [goals, setGoals] = useState("");
-  const [obs, setObs] = useState("");
+  const createPkgMutation = useMutation({
+    mutationFn: () => createSessionPackage({
+      patient_id: patient.id,
+      service_id: pkgService || null,
+      total_sessions: parseInt(pkgTotal) || 10,
+      remaining_sessions: parseInt(pkgTotal) || 10,
+    }),
+    onSuccess: () => {
+      refetchPkgs();
+      queryClient.invalidateQueries({ queryKey: ["session_packages"] });
+      toast.success("Pacote criado");
+      setNewPackageOpen(false);
+      setPkgTotal("10");
+      setPkgService("");
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
+  });
+
+  const anamnesisForm = useForm({
+    defaultValues: {
+      chief_complaint: "",
+      history: "",
+      diagnosis: "",
+      limitations: "",
+      goals: "",
+      obs: "",
+    },
+  });
+
+  useEffect(() => {
+    if (anamnesis) {
+      anamnesisForm.reset({
+        chief_complaint: anamnesis.chief_complaint || "",
+        history: anamnesis.history || "",
+        diagnosis: anamnesis.diagnosis || "",
+        limitations: anamnesis.limitations || "",
+        goals: anamnesis.goals || "",
+        obs: anamnesis.obs || "",
+      });
+    }
+  }, [anamnesis, anamnesisForm]);
+
+  function handleSaveAnamnesis() {
+    const data = anamnesisForm.getValues();
+    upsertMutation.mutate({
+      patient_id: patient.id,
+      chief_complaint: data.chief_complaint || null,
+      history: data.history || null,
+      diagnosis: data.diagnosis || null,
+      limitations: data.limitations || null,
+      goals: data.goals || null,
+      obs: data.obs || null,
+    });
+  }
 
   const [evoDate, setEvoDate] = useState(todayIso());
   const [evoConduct, setEvoConduct] = useState("");
   const [evoGuidance, setEvoGuidance] = useState("");
-
-  useEffect(() => {
-    if (anamnesis) {
-      setChiefComplaint(anamnesis.chief_complaint || "");
-      setHistory(anamnesis.history || "");
-      setDiagnosis(anamnesis.diagnosis || "");
-      setLimitations(anamnesis.limitations || "");
-      setGoals(anamnesis.goals || "");
-      setObs(anamnesis.obs || "");
-    } else {
-      setChiefComplaint("");
-      setHistory("");
-      setDiagnosis("");
-      setLimitations("");
-      setGoals("");
-      setObs("");
-    }
-  }, [anamnesis]);
-
-  function handleSaveAnamnesis() {
-    upsertMutation.mutate({
-      patient_id: patient.id,
-      chief_complaint: chiefComplaint || null,
-      history: history || null,
-      diagnosis: diagnosis || null,
-      limitations: limitations || null,
-      goals: goals || null,
-      obs: obs || null,
-    });
-  }
 
   async function handleAddEvolution() {
     if (!evoConduct.trim()) return toast.warning("Informe a conduta");
@@ -103,115 +142,95 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-10">
-      <div className="w-full max-w-2xl rounded-2xl border bg-card shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b px-6 py-4">
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
           <div>
-            <p className="text-xs text-muted-foreground">Ficha do paciente</p>
-            <h3 className="text-lg font-bold">{patient.name}</h3>
+            <DialogDescription>Ficha do paciente</DialogDescription>
+            <DialogTitle>{patient.name}</DialogTitle>
             <p className="text-sm text-muted-foreground">
               {patient.whatsapp || "Sem WhatsApp"} · {patient.pathology || "Sem patologia"}
             </p>
           </div>
-          <button className="rounded-lg p-2 hover:bg-accent" onClick={onClose}>
-            ✕
-          </button>
-        </div>
+          <DialogClose className="rounded-lg p-2 hover:bg-accent">✕</DialogClose>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+              Exportar PDF
+            </Button>
+          </div>
+        </DialogHeader>
 
-        {/* Tabs */}
-        <div className="flex gap-1 border-b px-6 pt-4">
-          <button
-            className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
-              tab === "anamnesis" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
-            }`}
-            onClick={() => setTab("anamnesis")}
-          >
-            Anamnese
-          </button>
-          <button
-            className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
-              tab === "evolutions" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
-            }`}
-            onClick={() => setTab("evolutions")}
-          >
-            Evoluções ({evolutions.length})
-          </button>
-        </div>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList>
+            <TabsTrigger value="anamnesis">Anamnese</TabsTrigger>
+            <TabsTrigger value="evolutions">Evoluções ({evolutions.length})</TabsTrigger>
+            <TabsTrigger value="packages">Pacotes ({packages.length})</TabsTrigger>
+          </TabsList>
 
-        <div className="p-6">
-          {tab === "anamnesis" ? (
+          <TabsContent value="anamnesis">
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-bold">Queixa principal</label>
+                <Label className="mb-1 block">Queixa principal</Label>
                 <textarea
                   className="w-full rounded-lg border px-3 py-2 text-sm"
                   rows={2}
-                  value={chiefComplaint}
-                  onChange={(e) => setChiefComplaint(e.target.value)}
+                  {...anamnesisForm.register("chief_complaint")}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-bold">História atual</label>
+                <Label className="mb-1 block">História atual</Label>
                 <textarea
                   className="w-full rounded-lg border px-3 py-2 text-sm"
                   rows={3}
-                  value={history}
-                  onChange={(e) => setHistory(e.target.value)}
+                  {...anamnesisForm.register("history")}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-bold">Diagnóstico / hipótese</label>
+                <Label className="mb-1 block">Diagnóstico / hipótese</Label>
                 <textarea
                   className="w-full rounded-lg border px-3 py-2 text-sm"
                   rows={2}
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
+                  {...anamnesisForm.register("diagnosis")}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-bold">Limitações funcionais</label>
+                  <Label className="mb-1 block">Limitações funcionais</Label>
                   <textarea
                     className="w-full rounded-lg border px-3 py-2 text-sm"
                     rows={2}
-                    value={limitations}
-                    onChange={(e) => setLimitations(e.target.value)}
+                    {...anamnesisForm.register("limitations")}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-bold">Objetivos</label>
+                  <Label className="mb-1 block">Objetivos</Label>
                   <textarea
                     className="w-full rounded-lg border px-3 py-2 text-sm"
                     rows={2}
-                    value={goals}
-                    onChange={(e) => setGoals(e.target.value)}
+                    {...anamnesisForm.register("goals")}
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-bold">Observações</label>
+                <Label className="mb-1 block">Observações</Label>
                 <textarea
                   className="w-full rounded-lg border px-3 py-2 text-sm"
                   rows={2}
-                  value={obs}
-                  onChange={(e) => setObs(e.target.value)}
+                  {...anamnesisForm.register("obs")}
                 />
               </div>
-              <button
-                className="rounded-lg bg-primary px-6 py-2 text-sm font-bold text-primary-foreground"
-                onClick={handleSaveAnamnesis}
-              >
+              <Button onClick={handleSaveAnamnesis}>
                 Salvar anamnese
-              </button>
+              </Button>
             </div>
-          ) : (
+          </TabsContent>
+
+          <TabsContent value="evolutions">
             <div className="space-y-4">
-              {/* New evolution form */}
               <div className="rounded-lg border bg-muted/30 p-4">
                 <h4 className="mb-3 text-sm font-bold">Nova evolução</h4>
                 <div className="mb-3">
-                  <label className="mb-1 block text-xs font-bold text-muted-foreground">Data</label>
+                  <Label className="mb-1 block text-xs text-muted-foreground">Data</Label>
                   <input
                     type="date"
                     className="rounded-lg border px-3 py-2 text-sm"
@@ -220,7 +239,7 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
                   />
                 </div>
                 <div className="mb-3">
-                  <label className="mb-1 block text-xs font-bold text-muted-foreground">Conduta *</label>
+                  <Label className="mb-1 block text-xs text-muted-foreground">Conduta *</Label>
                   <textarea
                     className="w-full rounded-lg border px-3 py-2 text-sm"
                     rows={2}
@@ -230,7 +249,7 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
                   />
                 </div>
                 <div className="mb-3">
-                  <label className="mb-1 block text-xs font-bold text-muted-foreground">Orientações</label>
+                  <Label className="mb-1 block text-xs text-muted-foreground">Orientações</Label>
                   <textarea
                     className="w-full rounded-lg border px-3 py-2 text-sm"
                     rows={2}
@@ -239,15 +258,11 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
                     onChange={(e) => setEvoGuidance(e.target.value)}
                   />
                 </div>
-                <button
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
-                  onClick={handleAddEvolution}
-                >
+                <Button onClick={handleAddEvolution}>
                   Adicionar
-                </button>
+                </Button>
               </div>
 
-              {/* Evolution list */}
               <div className="space-y-2">
                 {evolutions.map((evo) => (
                   <div key={evo.id} className="rounded-lg border p-4">
@@ -277,9 +292,125 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
                 )}
               </div>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+          </TabsContent>
+
+          <TabsContent value="packages">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold">Histórico de pacotes</h4>
+                <Button size="sm" onClick={() => setNewPackageOpen(true)}>
+                  Novo Pacote
+                </Button>
+              </div>
+
+              {packages.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum pacote registrado para este paciente.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {packages.map((pkg) => {
+                    const remaining = pkg.remaining_sessions ?? 0;
+                    const total = pkg.total_sessions ?? 0;
+                    const used = total - remaining;
+                    const pct = total > 0 ? (used / total) * 100 : 0;
+                    return (
+                      <div key={pkg.id} className="rounded-lg border p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold">
+                              {total} sessões
+                              {pkg.service_id && (
+                                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                  · {services.find((s) => s.id === pkg.service_id)?.name || ""}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Criado em {pkg.created_at ? fmtDate(pkg.created_at) : "—"}
+                            </p>
+                          </div>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                            remaining === 0
+                              ? "bg-gray-100 text-gray-600"
+                              : remaining <= 3
+                              ? "bg-red-100 text-red-700"
+                              : "bg-green-100 text-green-700"
+                          }`}>
+                            {remaining} restantes
+                          </span>
+                        </div>
+                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              pct >= 100 ? "bg-gray-400" : pct >= 70 ? "bg-red-400" : "bg-green-400"
+                            }`}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {used} de {total} utilizadas
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+
+      {/* Dialog Novo Pacote */}
+      <Dialog open={newPackageOpen} onOpenChange={(open) => !open && setNewPackageOpen(false)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <div>
+              <DialogDescription>Novo pacote</DialogDescription>
+              <DialogTitle>{patient.name}</DialogTitle>
+            </div>
+            <DialogClose className="rounded-lg p-2 hover:bg-accent">✕</DialogClose>
+          </DialogHeader>
+          <DialogBody>
+            <div className="space-y-4">
+              <div>
+                <Label className="mb-1.5 block">Número de sessões</Label>
+                <input
+                  type="number"
+                  min="1"
+                  className="w-full rounded-lg border px-3 py-2.5 text-sm"
+                  value={pkgTotal}
+                  onChange={(e) => setPkgTotal(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="mb-1.5 block">Serviço (opcional)</Label>
+                <select
+                  className="w-full rounded-lg border px-3 py-2.5 text-sm"
+                  value={pkgService}
+                  onChange={(e) => setPkgService(e.target.value)}
+                >
+                  <option value="">Todos / Geral</option>
+                  {services.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewPackageOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createPkgMutation.mutate()}
+              disabled={createPkgMutation.isPending || parseInt(pkgTotal) < 1}
+            >
+              {createPkgMutation.isPending ? "Criando..." : "Criar Pacote"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Dialog>
   );
 }

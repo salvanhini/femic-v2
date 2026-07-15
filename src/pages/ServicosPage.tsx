@@ -1,9 +1,23 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
 import { fetchServices, fetchHealthInsurances } from "@/lib/supabase/queries/services";
 import type { Service } from "@/lib/types/database";
+
+const serviceSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  price: z.preprocess((v) => Number(v) || 0, z.number().min(0)),
+  duration_minutes: z.preprocess((v) => Number(v) || 45, z.number().min(5, "Mínimo 5min").max(480, "Máximo 8h")),
+  appointment_mode: z.enum(["individual", "grupo"]),
+  max_patients: z.preprocess((v) => Number(v) || 4, z.number().min(1).max(50)),
+  health_insurance_id: z.string().nullable(),
+});
+
+type ServiceFormData = z.infer<typeof serviceSchema>;
 
 export default function ServicosPage() {
   const queryClient = useQueryClient();
@@ -11,125 +25,162 @@ export default function ServicosPage() {
   const { data: payers = [] } = useHealthInsurances();
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", price: "", duration: "45", mode: "individual", max_patients: "4", payer: "" });
+
+  const form = useForm<ServiceFormData>({
+    resolver: zodResolver(serviceSchema),
+    defaultValues: {
+      name: "",
+      price: 0,
+      duration_minutes: 45,
+      appointment_mode: "individual",
+      max_patients: 4,
+      health_insurance_id: null,
+    },
+  });
 
   const payerMap = useMemo(() => new Map(payers.map((p) => [p.id, p])), [payers]);
 
+  useEffect(() => {
+    if (editingId) {
+      const service = services.find((s) => s.id === editingId);
+      if (service) {
+        form.reset({
+          name: service.name,
+          price: service.price ?? 0,
+          duration_minutes: service.duration_minutes ?? 45,
+          appointment_mode: (service.appointment_mode as "individual" | "grupo") || "individual",
+          max_patients: service.max_patients ?? 4,
+          health_insurance_id: service.health_insurance_id,
+        });
+      }
+    }
+  }, [editingId, services, form]);
+
   const createMutation = useMutation({
-    mutationFn: async (data: Partial<Service>) => {
+    mutationFn: async (data: ServiceFormData) => {
       const { error } = await getSupabase().from("services").insert(data);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
       toast.success("Serviço criado");
+      form.reset();
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<Service> }) => {
+    mutationFn: async ({ id, data }: { id: string; data: ServiceFormData }) => {
       const { error } = await getSupabase().from("services").update(data).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
       toast.success("Serviço atualizado");
+      handleCancel();
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
   });
 
   function handleEdit(service: Service) {
     setEditingId(service.id);
-    setForm({
-      name: service.name,
-      price: String(service.price || ""),
-      duration: String(service.duration_minutes || 45),
-      mode: service.appointment_mode || "individual",
-      max_patients: String(service.max_patients || 4),
-      payer: service.health_insurance_id || "",
-    });
   }
 
   function handleCancel() {
     setEditingId(null);
-    setForm({ name: "", price: "", duration: "45", mode: "individual", max_patients: "4", payer: "" });
+    form.reset();
   }
 
-  async function handleSave() {
-    if (!form.name.trim()) return toast.warning("Informe o nome do serviço");
-    const payload = {
-      name: form.name.trim(),
-      price: Number(form.price) || 0,
-      duration_minutes: Number(form.duration) || 45,
-      appointment_mode: form.mode,
-      max_patients: Number(form.max_patients) || 4,
-      health_insurance_id: form.payer || null,
-    };
-
+  function handleSave(data: ServiceFormData) {
     if (editingId) {
-      await updateMutation.mutateAsync({ id: editingId, data: payload });
+      updateMutation.mutate({ id: editingId, data });
     } else {
-      await createMutation.mutateAsync(payload);
+      createMutation.mutate(data);
     }
-    handleCancel();
   }
 
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold">Serviços</h2>
 
-      <div className="rounded-xl border bg-card p-4">
+      <form onSubmit={form.handleSubmit(handleSave)} className="rounded-xl border bg-card p-4">
         <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <input
-            placeholder="Nome do serviço"
-            className="rounded-lg border px-3 py-2 text-sm"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          />
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Valor"
-            className="rounded-lg border px-3 py-2 text-sm"
-            value={form.price}
-            onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-          />
-          <select
-            className="rounded-lg border px-3 py-2 text-sm"
-            value={form.mode}
-            onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value }))}
-          >
-            <option value="individual">Individual</option>
-            <option value="grupo">Grupo</option>
-          </select>
-          <select
-            className="rounded-lg border px-3 py-2 text-sm"
-            value={form.payer}
-            onChange={(e) => setForm((f) => ({ ...f, payer: e.target.value }))}
-          >
-            <option value="">Sem convênio</option>
-            {payers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              placeholder="Nome do serviço"
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+              {...form.register("name")}
+            />
+            {form.formState.errors.name && (
+              <p className="mt-1 text-xs text-red-500">{form.formState.errors.name.message}</p>
+            )}
+          </div>
+          <div>
+            <input
+              type="number"
+              step="0.01"
+              placeholder="Valor (R$)"
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+              {...form.register("price")}
+            />
+          </div>
+          <div>
+            <select
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+              {...form.register("appointment_mode")}
+            >
+              <option value="individual">Individual</option>
+              <option value="grupo">Grupo</option>
+            </select>
+          </div>
+          <div>
+            <select
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+              {...form.register("health_insurance_id")}
+            >
+              <option value="">Sem convênio</option>
+              {payers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-xs font-bold text-muted-foreground">Duração (min)</label>
+            <input
+              type="number"
+              min="5"
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+              {...form.register("duration_minutes")}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-muted-foreground">Máx. pacientes</label>
+            <input
+              type="number"
+              min="1"
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+              {...form.register("max_patients")}
+            />
+          </div>
         </div>
         <div className="flex gap-2">
           <button
+            type="submit"
             className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
-            onClick={handleSave}
           >
             {editingId ? "Atualizar" : "Adicionar"}
           </button>
           {editingId && (
-            <button className="rounded-lg border px-4 py-2 text-sm" onClick={handleCancel}>
+            <button type="button" className="rounded-lg border px-4 py-2 text-sm" onClick={handleCancel}>
               Cancelar
             </button>
           )}
         </div>
-      </div>
+      </form>
 
       <div className="space-y-2">
         {services.map((s) => (

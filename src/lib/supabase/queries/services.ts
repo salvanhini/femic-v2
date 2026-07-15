@@ -28,12 +28,39 @@ export async function fetchSessionPackages() {
   return data as SessionPackage[];
 }
 
+export async function fetchPatientPackages(patientId: string) {
+  const { data, error } = await getSupabase()
+    .from("session_packages")
+    .select("*")
+    .eq("patient_id", patientId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data as SessionPackage[];
+}
+
+export async function createSessionPackage(pkg: { patient_id: string; service_id?: string | null; total_sessions: number; remaining_sessions: number }) {
+  const { data, error } = await getSupabase()
+    .from("session_packages")
+    .insert(pkg)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SessionPackage;
+}
+
 export async function fetchScheduleSettings() {
   const { data, error } = await getSupabase()
     .from("schedule_settings")
     .select("*")
     .limit(1)
-    .single();
+    .maybeSingle();
   if (error) throw error;
-  return data as ScheduleSettings;
+  return data as ScheduleSettings | null;
+}
+
+export async function upsertScheduleSettings(settings: Partial<ScheduleSettings>) {
+  const { error } = await getSupabase()
+    .from("schedule_settings")
+    .upsert(settings, { onConflict: "id" });
+  if (error) throw error;
 }

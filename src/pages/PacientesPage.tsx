@@ -17,7 +17,7 @@ export default function PacientesPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [editing, setEditing] = useState<Patient | null>(null);
   const [chartPatient, setChartPatient] = useState<Patient | null>(null);
-  const [form, setForm] = useState({ name: "", whatsapp: "", pathology: "" });
+  const [form, setForm] = useState({ name: "", whatsapp: "", pathology: "", birth_date: "", referral_source: "" });
 
   const filtered = useMemo(() => {
     return patients.filter((p) => {
@@ -36,7 +36,7 @@ export default function PacientesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["patients"] });
       toast.success("Paciente criado");
-      setForm({ name: "", whatsapp: "", pathology: "" });
+      setForm({ name: "", whatsapp: "", pathology: "", birth_date: "", referral_source: "" });
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
   });
@@ -48,7 +48,7 @@ export default function PacientesPage() {
       queryClient.invalidateQueries({ queryKey: ["patients"] });
       toast.success("Paciente atualizado");
       setEditing(null);
-      setForm({ name: "", whatsapp: "", pathology: "" });
+      setForm({ name: "", whatsapp: "", pathology: "", birth_date: "", referral_source: "" });
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
   });
@@ -78,7 +78,7 @@ export default function PacientesPage() {
 
   function openEdit(p: Patient) {
     setEditing(p);
-    setForm({ name: p.name, whatsapp: p.whatsapp || "", pathology: p.pathology || "" });
+    setForm({ name: p.name, whatsapp: p.whatsapp || "", pathology: p.pathology || "", birth_date: p.birth_date || "", referral_source: p.referral_source || "" });
   }
 
   function handleSave() {
@@ -87,6 +87,8 @@ export default function PacientesPage() {
       name: form.name.trim(),
       whatsapp: form.whatsapp.trim() || null,
       pathology: form.pathology.trim() || null,
+      birth_date: form.birth_date || null,
+      referral_source: form.referral_source.trim() || null,
     };
     if (editing) {
       updateMutation.mutate({ id: editing.id, data: payload });
@@ -146,6 +148,24 @@ export default function PacientesPage() {
             onChange={(e) => setForm((f) => ({ ...f, pathology: e.target.value }))}
           />
         </div>
+        <div className="w-40">
+          <label className="mb-1 text-xs font-bold text-muted-foreground">Nascimento</label>
+          <input
+            type="date"
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+            value={form.birth_date}
+            onChange={(e) => setForm((f) => ({ ...f, birth_date: e.target.value }))}
+          />
+        </div>
+        <div className="w-40">
+          <label className="mb-1 text-xs font-bold text-muted-foreground">Origem</label>
+          <input
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+            placeholder="Indicação, Google..."
+            value={form.referral_source}
+            onChange={(e) => setForm((f) => ({ ...f, referral_source: e.target.value }))}
+          />
+        </div>
         <button
           className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
           onClick={handleSave}
@@ -157,7 +177,7 @@ export default function PacientesPage() {
             className="rounded-lg border px-4 py-2 text-sm"
             onClick={() => {
               setEditing(null);
-              setForm({ name: "", whatsapp: "", pathology: "" });
+setForm({ name: "", whatsapp: "", pathology: "", birth_date: "", referral_source: "" });
             }}
           >
             Cancelar
@@ -178,6 +198,8 @@ export default function PacientesPage() {
               </p>
               <p className="text-sm text-muted-foreground">
                 {p.whatsapp || "Sem WhatsApp"} · {p.pathology || "Sem patologia"}
+                {p.birth_date && ` · Nasc: ${p.birth_date}`}
+                {p.referral_source && ` · Origem: ${p.referral_source}`}
                 {p.archived && " · Inativo"}
               </p>
             </div>

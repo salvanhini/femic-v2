@@ -5,9 +5,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getSession, onAuthStateChange, signOut as supabaseSignOut } from "@/lib/supabase/auth";
 import { hasSupabaseConfig } from "@/lib/supabase/client";
+
+const PUBLIC_PATHS = ["/formulario-externo"];
 
 interface AuthContextValue {
   session: unknown;
@@ -22,8 +24,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isPublic = PUBLIC_PATHS.includes(location.pathname);
 
   useEffect(() => {
+    if (isPublic) {
+      setIsLoading(false);
+      return;
+    }
+
     if (!hasSupabaseConfig()) {
       setIsLoading(false);
       navigate("/login");
@@ -41,11 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: listener } = onAuthStateChange((_event, s) => {
       setSession(s);
-      if (!s) navigate("/login");
+      if (!s && !isPublic) navigate("/login");
     });
 
     return () => listener?.subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, isPublic]);
 
   async function signOut() {
     await supabaseSignOut();

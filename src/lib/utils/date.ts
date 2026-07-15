@@ -36,6 +36,12 @@ export function minToTime(minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+export function addDays(isoDate: string, days: number): string {
+  const d = parseISO(isoDate);
+  d.setDate(d.getDate() + days);
+  return format(d, "yyyy-MM-dd");
+}
+
 export function addMinutes(time: string, minutes: number): string {
   return minToTime(timeToMin(time) + minutes);
 }

@@ -10,12 +10,16 @@ import AgendaPage from "@/pages/AgendaPage";
 import DashboardPage from "@/pages/DashboardPage";
 import PacientesPage from "@/pages/PacientesPage";
 import ServicosPage from "@/pages/ServicosPage";
-import ConveniosPage from "@/pages/ConveniosPage";
 import PacotesPage from "@/pages/PacotesPage";
 import RelatorioPage from "@/pages/RelatorioPage";
 import BackupPage from "@/pages/BackupPage";
-import AssistentePage from "@/pages/AssistentePage";
 import ProntuarioPage from "@/pages/ProntuarioPage";
+import ConfiguracoesPage from "@/pages/ConfiguracoesPage";
+import CaptacaoPage from "@/pages/CaptacaoPage";
+import ExternalFormPage from "@/pages/ExternalFormPage";
+import LembretesPage from "@/pages/LembretesPage";
+import GuiasPage from "@/pages/GuiasPage";
+import DocumentosPacientePage from "@/pages/DocumentosPacientePage";
 
 const queryClient = new QueryClient();
 
@@ -28,17 +32,21 @@ function App() {
             <ErrorBoundary>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/formulario-externo" element={<ExternalFormPage />} />
                 <Route element={<Layout />}>
                   <Route path="/" element={<DashboardPage />} />
                   <Route path="/agenda" element={<AgendaPage />} />
                   <Route path="/pacientes" element={<PacientesPage />} />
                   <Route path="/servicos" element={<ServicosPage />} />
-                  <Route path="/convenios" element={<ConveniosPage />} />
                   <Route path="/pacotes" element={<PacotesPage />} />
                   <Route path="/relatorio" element={<RelatorioPage />} />
                   <Route path="/backup" element={<BackupPage />} />
-                  <Route path="/assistente" element={<AssistentePage />} />
                   <Route path="/prontuario" element={<ProntuarioPage />} />
+                  <Route path="/configuracoes" element={<ConfiguracoesPage />} />
+                  <Route path="/captacao" element={<CaptacaoPage />} />
+                  <Route path="/lembretes" element={<LembretesPage />} />
+                  <Route path="/guias" element={<GuiasPage />} />
+                  <Route path="/documentos" element={<DocumentosPacientePage />} />
                 </Route>
               </Routes>
             </ErrorBoundary>

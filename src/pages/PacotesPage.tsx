@@ -1,11 +1,22 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
 import { fetchPatients } from "@/lib/supabase/queries/patients";
 import { fetchServices } from "@/lib/supabase/queries/services";
 import { fetchSessionPackages } from "@/lib/supabase/queries/services";
 import type { SessionPackage } from "@/lib/types/database";
+
+const packageSchema = z.object({
+  patient_id: z.string().min(1, "Selecione o paciente"),
+  service_id: z.string().min(1, "Selecione o serviço"),
+  total_sessions: z.preprocess((v) => Number(v) || 0, z.number().min(1, "Mínimo 1 sessão").max(999)),
+});
+
+type PackageFormData = z.infer<typeof packageSchema>;
 
 export default function PacotesPage() {
   const queryClient = useQueryClient();
@@ -16,14 +27,24 @@ export default function PacotesPage() {
   const patientMap = useMemo(() => new Map(patients.map((p) => [p.id, p])), [patients]);
   const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
 
-  const [patientId, setPatientId] = useState("");
-  const [serviceId, setServiceId] = useState("");
-  const [totalSessions, setTotalSessions] = useState("12");
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const form = useForm<PackageFormData>({
+    resolver: zodResolver(packageSchema),
+    defaultValues: {
+      patient_id: "",
+      service_id: "",
+      total_sessions: 12,
+    },
+  });
+
   const createMutation = useMutation({
-    mutationFn: async (data: Partial<SessionPackage>) => {
-      const { error } = await getSupabase().from("session_packages").insert(data);
+    mutationFn: async (data: PackageFormData) => {
+      const { error } = await getSupabase().from("session_packages").insert({
+        ...data,
+        remaining_sessions: data.total_sessions,
+        active: true,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -58,33 +79,32 @@ export default function PacotesPage() {
   });
 
   function resetForm() {
-    setPatientId("");
-    setServiceId("");
-    setTotalSessions("12");
     setEditingId(null);
+    form.reset({ patient_id: "", service_id: "", total_sessions: 12 });
   }
 
   function handleEdit(pkg: SessionPackage) {
     setEditingId(pkg.id);
-    setPatientId(pkg.patient_id);
-    setServiceId(pkg.service_id || "");
-    setTotalSessions(String(pkg.total_sessions || 0));
+    form.reset({
+      patient_id: pkg.patient_id,
+      service_id: pkg.service_id || "",
+      total_sessions: pkg.total_sessions || 0,
+    });
   }
 
-  function handleSave() {
-    if (!patientId) return toast.warning("Selecione o paciente");
-    if (!serviceId) return toast.warning("Selecione o serviço");
-    const payload = {
-      patient_id: patientId,
-      service_id: serviceId,
-      total_sessions: Number(totalSessions) || 0,
-      remaining_sessions: Number(totalSessions) || 0,
-      active: true,
-    };
+  function handleSave(data: PackageFormData) {
     if (editingId) {
-      updateMutation.mutate({ id: editingId, data: payload });
+      updateMutation.mutate({
+        id: editingId,
+        data: {
+          patient_id: data.patient_id,
+          service_id: data.service_id,
+          total_sessions: data.total_sessions,
+          remaining_sessions: data.total_sessions - ((packages.find((p) => p.id === editingId)?.total_sessions ?? data.total_sessions) - (packages.find((p) => p.id === editingId)?.remaining_sessions ?? 0)),
+        },
+      });
     } else {
-      createMutation.mutate(payload);
+      createMutation.mutate(data);
     }
   }
 
@@ -92,33 +112,37 @@ export default function PacotesPage() {
     <div className="space-y-6">
       <h2 className="text-lg font-bold">Pacotes de Sessão</h2>
 
-      <div className="rounded-xl border bg-card p-4">
+      <form onSubmit={form.handleSubmit(handleSave)} className="rounded-xl border bg-card p-4">
         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-bold text-muted-foreground">Paciente *</label>
             <select
               className="w-full rounded-lg border px-3 py-2 text-sm"
-              value={patientId}
-              onChange={(e) => setPatientId(e.target.value)}
+              {...form.register("patient_id")}
             >
               <option value="">Selecione...</option>
               {patients.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+            {form.formState.errors.patient_id && (
+              <p className="mt-1 text-xs text-red-500">{form.formState.errors.patient_id.message}</p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-xs font-bold text-muted-foreground">Serviço *</label>
             <select
               className="w-full rounded-lg border px-3 py-2 text-sm"
-              value={serviceId}
-              onChange={(e) => setServiceId(e.target.value)}
+              {...form.register("service_id")}
             >
               <option value="">Selecione...</option>
               {services.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
+            {form.formState.errors.service_id && (
+              <p className="mt-1 text-xs text-red-500">{form.formState.errors.service_id.message}</p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-xs font-bold text-muted-foreground">Total de sessões</label>
@@ -126,25 +150,24 @@ export default function PacotesPage() {
               type="number"
               min="1"
               className="w-full rounded-lg border px-3 py-2 text-sm"
-              value={totalSessions}
-              onChange={(e) => setTotalSessions(e.target.value)}
+              {...form.register("total_sessions")}
             />
           </div>
           <div className="flex items-end gap-2">
             <button
+              type="submit"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
-              onClick={handleSave}
             >
               {editingId ? "Atualizar" : "Adicionar"}
             </button>
             {editingId && (
-              <button className="rounded-lg border px-4 py-2 text-sm" onClick={resetForm}>
+              <button type="button" className="rounded-lg border px-4 py-2 text-sm" onClick={resetForm}>
                 Cancelar
               </button>
             )}
           </div>
         </div>
-      </div>
+      </form>
 
       <div className="space-y-2">
         {packages.map((pkg) => {

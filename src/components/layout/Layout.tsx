@@ -7,12 +7,15 @@ import {
   Calendar,
   Users,
   Wrench,
-  Shield,
   Package,
   FileBarChart,
+  FileText,
   Database,
-  Bot,
   Stethoscope,
+  Settings,
+  MessageCircle,
+  FileInput,
+  Paperclip,
 } from "lucide-react";
 
 const navItems = [
@@ -20,11 +23,14 @@ const navItems = [
   { icon: Calendar, label: "Agenda", path: "/agenda" },
   { icon: Users, label: "Pacientes", path: "/pacientes" },
   { icon: Wrench, label: "Serviços", path: "/servicos" },
-  { icon: Shield, label: "Convênios", path: "/convenios" },
   { icon: Package, label: "Pacotes", path: "/pacotes" },
   { icon: FileBarChart, label: "Relatório", path: "/relatorio" },
+  { icon: FileText, label: "Captação", path: "/captacao" },
   { icon: Stethoscope, label: "Prontuário", path: "/prontuario" },
-  { icon: Bot, label: "Assistente", path: "/assistente" },
+  { icon: MessageCircle, label: "Lembretes", path: "/lembretes" },
+  { icon: FileInput, label: "Guias", path: "/guias" },
+  { icon: Paperclip, label: "Documentos", path: "/documentos" },
+  { icon: Settings, label: "Configurações", path: "/configuracoes" },
   { icon: Database, label: "Backup", path: "/backup" },
 ];
 
@@ -33,12 +39,15 @@ const pageTitles: Record<string, string> = {
   "/agenda": "Agenda",
   "/pacientes": "Pacientes",
   "/servicos": "Serviços",
-  "/convenios": "Convênios",
   "/pacotes": "Pacotes",
   "/relatorio": "Relatório",
   "/prontuario": "Prontuário",
-  "/assistente": "Assistente IA",
+  "/captacao": "Captação",
+  "/lembretes": "Lembretes WhatsApp",
+  "/guias": "Guias de Convênio",
+  "/documentos": "Documentos do Paciente",
   "/backup": "Backup",
+  "/configuracoes": "Configurações",
 };
 
 export default function Layout() {

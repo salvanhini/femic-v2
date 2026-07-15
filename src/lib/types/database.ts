@@ -68,6 +68,21 @@ export interface Database {
         Insert: Omit<PatientFormResponse, "id" | "submitted_at">;
         Update: Partial<PatientFormResponse>;
       };
+      whatsapp_inbox: {
+        Row: WhatsappInbox;
+        Insert: Omit<WhatsappInbox, "id" | "received_at">;
+        Update: Partial<WhatsappInbox>;
+      };
+      bot_mutes: {
+        Row: BotMute;
+        Insert: Omit<BotMute, "id">;
+        Update: Partial<BotMute>;
+      };
+      whatsapp_service_status: {
+        Row: WhatsappServiceStatus;
+        Insert: Omit<WhatsappServiceStatus, "id" | "updated_at">;
+        Update: Partial<WhatsappServiceStatus>;
+      };
     };
   };
 }
@@ -77,6 +92,10 @@ export interface Patient {
   name: string;
   pathology: string | null;
   whatsapp: string | null;
+  birth_date: string | null;
+  referral_source: string | null;
+  feedback_sent: boolean;
+  feedback_sent_at: string | null;
   archived: boolean;
   archived_at: string | null;
   created_at: string;
@@ -143,6 +162,13 @@ export interface ClinicalAnamnesis {
   limitations: string | null;
   goals: string | null;
   obs: string | null;
+  occupation_routine: string | null;
+  physical_activity_context: string | null;
+  red_flags: string | null;
+  previous_treatments: string | null;
+  psychosocial_factors: string | null;
+  fear_avoidance: string | null;
+  clinical_summary: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -197,28 +223,18 @@ export interface ClinicRule {
 
 export interface AssistantTask {
   id: string;
-  title: string;
-  type: string | null;
-  status: string;
-  priority: string | null;
   patient_id: string | null;
   patient_name: string | null;
-  service_id: string | null;
-  service_name: string | null;
-  suggestion_reason: string | null;
   phone: string | null;
-  origin: string | null;
-  requested_action: string | null;
+  service_name: string | null;
+  service_id: string | null;
+  status: string;
   notes: string | null;
-  suggested_slots: Json;
-  candidates: Json;
-  parsed_shift: string | null;
-  parsed_dates: Json;
-  extension_fingerprint: string | null;
+  suggested_slots: string | null;
+  origin: string | null;
   needs_review: boolean;
   created_at: string;
   updated_at: string;
-  completed_at: string | null;
 }
 
 export interface ScheduleSettings {
@@ -248,4 +264,34 @@ export interface PatientFormResponse {
   imported: boolean;
   linked_patient_id: string | null;
   imported_at: string | null;
+}
+
+export interface WhatsappInbox {
+  id: string;
+  phone: string | null;
+  jid: string | null;
+  sender_name: string | null;
+  message_text: string | null;
+  category: string | null;
+  confidence: number | null;
+  status: string | null;
+  received_at: string;
+}
+
+export interface BotMute {
+  id: string;
+  jid: string;
+  expires_at: string | null;
+  active: boolean;
+}
+
+export interface WhatsappServiceStatus {
+  id: string;
+  service_name: string;
+  provider: string | null;
+  connection_status: string | null;
+  last_seen_at: string | null;
+  last_connected_at: string | null;
+  last_error: string | null;
+  updated_at: string;
 }

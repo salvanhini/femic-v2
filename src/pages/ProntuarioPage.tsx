@@ -3,8 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { fetchPatients } from "@/lib/supabase/queries/patients";
 import { fetchAnamnesis, upsertAnamnesis, fetchEvolutions, createEvolution, deleteEvolution } from "@/lib/supabase/queries/clinical";
-import { fetchDocuments } from "@/lib/supabase/queries/assistants";
+import { fetchDocuments, createDocument } from "@/lib/supabase/queries/assistants";
 import { todayIso, fmtDate } from "@/lib/utils/date";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import type { ClinicalAnamnesis } from "@/lib/types/database";
 
 export default function ProntuarioPage() {
@@ -14,6 +16,8 @@ export default function ProntuarioPage() {
 
   const [patientId, setPatientId] = useState("");
   const [tab, setTab] = useState<"anamnesis" | "evolutions" | "documents">("anamnesis");
+  const [docModalOpen, setDocModalOpen] = useState(false);
+  const [docForm, setDocForm] = useState({ title: "", type: "relatorio", body: "", html: "" });
 
   const { data: anamnesis, refetch: refetchAnam } = useQuery({
     queryKey: ["anamnesis", patientId],
@@ -27,7 +31,7 @@ export default function ProntuarioPage() {
     enabled: !!patientId,
   });
 
-  const { data: documents = [] } = useQuery({
+  const { data: documents = [], refetch: refetchDocs } = useQuery({
     queryKey: ["documents", patientId],
     queryFn: () => fetchDocuments(patientId),
     enabled: !!patientId,
@@ -41,6 +45,13 @@ export default function ProntuarioPage() {
   const [limitations, setLimitations] = useState("");
   const [goals, setGoals] = useState("");
   const [obs, setObs] = useState("");
+  const [occupationRoutine, setOccupationRoutine] = useState("");
+  const [physicalActivity, setPhysicalActivity] = useState("");
+  const [redFlags, setRedFlags] = useState("");
+  const [previousTreatments, setPreviousTreatments] = useState("");
+  const [psychosocialFactors, setPsychosocialFactors] = useState("");
+  const [fearAvoidance, setFearAvoidance] = useState("");
+  const [clinicalSummary, setClinicalSummary] = useState("");
 
   const [evoDate, setEvoDate] = useState(todayIso());
   const [evoConduct, setEvoConduct] = useState("");
@@ -54,21 +65,45 @@ export default function ProntuarioPage() {
       setLimitations(anamnesis.limitations || "");
       setGoals(anamnesis.goals || "");
       setObs(anamnesis.obs || "");
+      setOccupationRoutine(anamnesis.occupation_routine || "");
+      setPhysicalActivity(anamnesis.physical_activity_context || "");
+      setRedFlags(anamnesis.red_flags || "");
+      setPreviousTreatments(anamnesis.previous_treatments || "");
+      setPsychosocialFactors(anamnesis.psychosocial_factors || "");
+      setFearAvoidance(anamnesis.fear_avoidance || "");
+      setClinicalSummary(anamnesis.clinical_summary || "");
     } else {
-      setChiefComplaint("");
-      setHistory("");
-      setDiagnosis("");
-      setLimitations("");
-      setGoals("");
-      setObs("");
+      setChiefComplaint(""); setHistory(""); setDiagnosis(""); setLimitations("");
+      setGoals(""); setObs(""); setOccupationRoutine(""); setPhysicalActivity("");
+      setRedFlags(""); setPreviousTreatments(""); setPsychosocialFactors("");
+      setFearAvoidance(""); setClinicalSummary("");
     }
   }, [anamnesis]);
 
   const upsertMutation = useMutation({
     mutationFn: (data: Partial<ClinicalAnamnesis>) => upsertAnamnesis(data),
+    onSuccess: () => { refetchAnam(); toast.success("Anamnese salva"); },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
+  });
+
+  const createDocMutation = useMutation({
+    mutationFn: () => createDocument({
+      patient_id: patientId || null,
+      patient_name: patient?.name || null,
+      document_title: docForm.title.trim() || null,
+      document_type: docForm.type || null,
+      document_body: docForm.body.trim() || null,
+      rendered_html: docForm.html.trim() || null,
+      document_date: todayIso(),
+      status: "generated",
+      source: "manual",
+      metadata: {},
+    }),
     onSuccess: () => {
-      refetchAnam();
-      toast.success("Anamnese salva");
+      refetchDocs();
+      toast.success("Documento gerado");
+      setDocModalOpen(false);
+      setDocForm({ title: "", type: "relatorio", body: "", html: "" });
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Erro"),
   });
@@ -83,6 +118,13 @@ export default function ProntuarioPage() {
       limitations: limitations || null,
       goals: goals || null,
       obs: obs || null,
+      occupation_routine: occupationRoutine || null,
+      physical_activity_context: physicalActivity || null,
+      red_flags: redFlags || null,
+      previous_treatments: previousTreatments || null,
+      psychosocial_factors: psychosocialFactors || null,
+      fear_avoidance: fearAvoidance || null,
+      clinical_summary: clinicalSummary || null,
     });
   }
 
@@ -121,11 +163,7 @@ export default function ProntuarioPage() {
       <div className="flex items-center gap-4">
         <h2 className="text-lg font-bold">Prontuário Clínico</h2>
         <div className="w-72">
-          <select
-            className="w-full rounded-lg border px-3 py-2 text-sm"
-            value={patientId}
-            onChange={(e) => setPatientId(e.target.value)}
-          >
+          <select className="w-full rounded-lg border px-3 py-2 text-sm" value={patientId} onChange={(e) => setPatientId(e.target.value)}>
             <option value="">Selecione um paciente...</option>
             {activePatients.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -149,13 +187,7 @@ export default function ProntuarioPage() {
         <>
           <div className="flex gap-1 border-b">
             {(["anamnesis", "evolutions", "documents"] as const).map((t) => (
-              <button
-                key={t}
-                className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
-                  tab === t ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
-                }`}
-                onClick={() => setTab(t)}
-              >
+              <button key={t} className={`rounded-t-lg px-4 py-2 text-sm font-medium ${tab === t ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`} onClick={() => setTab(t)}>
                 {t === "anamnesis" ? "Anamnese" : t === "evolutions" ? `Evoluções (${evolutions.length})` : `Documentos (${documents.length})`}
               </button>
             ))}
@@ -176,6 +208,18 @@ export default function ProntuarioPage() {
                   <label className="mb-1 block text-sm font-bold">Diagnóstico / hipótese</label>
                   <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} />
                 </div>
+                <div>
+                  <label className="mb-1 block text-sm font-bold">Tratamentos anteriores</label>
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={previousTreatments} onChange={(e) => setPreviousTreatments(e.target.value)} placeholder="Fisioterapia anterior, medicamentos, cirurgias..." />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-bold">Bandeiras vermelhas (red flags)</label>
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={redFlags} onChange={(e) => setRedFlags(e.target.value)} placeholder="Sinais de alerta que contraindiquem terapia manual..." />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-bold">Fatores psicossociais</label>
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={psychosocialFactors} onChange={(e) => setPsychosocialFactors(e.target.value)} placeholder="Estresse, ansiedade, depressão, suporte social..." />
+                </div>
               </div>
               <div className="space-y-4">
                 <div>
@@ -187,8 +231,24 @@ export default function ProntuarioPage() {
                   <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={goals} onChange={(e) => setGoals(e.target.value)} />
                 </div>
                 <div>
+                  <label className="mb-1 block text-sm font-bold">Rotina ocupacional</label>
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={occupationRoutine} onChange={(e) => setOccupationRoutine(e.target.value)} placeholder="Trabalho, atividades diárias, lazer..." />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-bold">Contexto de atividade física</label>
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={physicalActivity} onChange={(e) => setPhysicalActivity(e.target.value)} placeholder="Esportes, exercícios, sedentarismo..." />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-bold">Medo-evitação</label>
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={fearAvoidance} onChange={(e) => setFearAvoidance(e.target.value)} placeholder="Crenças sobre movimento, medo de piorar..." />
+                </div>
+                <div>
                   <label className="mb-1 block text-sm font-bold">Observações</label>
                   <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={obs} onChange={(e) => setObs(e.target.value)} />
+                </div>
+                <div className="col-span-full">
+                  <label className="mb-1 block text-sm font-bold">Sumário clínico</label>
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={3} value={clinicalSummary} onChange={(e) => setClinicalSummary(e.target.value)} placeholder="Síntese dos achados para referência rápida..." />
                 </div>
                 <button className="rounded-lg bg-primary px-6 py-2 text-sm font-bold text-primary-foreground" onClick={handleSaveAnamnesis}>
                   Salvar anamnese
@@ -217,7 +277,6 @@ export default function ProntuarioPage() {
                   Adicionar
                 </button>
               </div>
-
               <div className="space-y-2">
                 <h4 className="text-sm font-bold text-muted-foreground">Linha do cuidado</h4>
                 {evolutions.slice(0, 10).map((evo) => (
@@ -241,6 +300,9 @@ export default function ProntuarioPage() {
 
           {tab === "documents" && (
             <div className="space-y-2">
+              <div className="flex justify-end">
+                <Button onClick={() => setDocModalOpen(true)}>Gerar Documento</Button>
+              </div>
               {documents.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum documento gerado para este paciente.</p>
               ) : (
@@ -253,6 +315,19 @@ export default function ProntuarioPage() {
                           {doc.document_type} · {doc.document_date ? fmtDate(doc.document_date) : ""} · {doc.status}
                         </p>
                       </div>
+                      <button
+                        className="rounded-lg border px-3 py-1 text-xs hover:bg-accent"
+                        onClick={() => {
+                          const w = window.open("", "_blank");
+                          if (w) {
+                            w.document.write(`<html><head><title>${doc.document_title || "Documento"}</title></head><body>${doc.rendered_html || doc.document_body || ""}</body></html>`);
+                            w.document.close();
+                            w.print();
+                          }
+                        }}
+                      >
+                        Imprimir
+                      </button>
                     </div>
                     {doc.rendered_html && (
                       <div className="mt-2 max-h-40 overflow-y-auto rounded bg-muted p-3 text-sm" dangerouslySetInnerHTML={{ __html: doc.rendered_html }} />
@@ -264,6 +339,51 @@ export default function ProntuarioPage() {
           )}
         </>
       )}
+
+      <Dialog open={docModalOpen} onOpenChange={(open) => !open && setDocModalOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <div>
+              <DialogDescription>Gerar documento</DialogDescription>
+              <DialogTitle>Novo Documento</DialogTitle>
+            </div>
+            <DialogClose className="rounded-lg p-2 hover:bg-accent">✕</DialogClose>
+          </DialogHeader>
+          <DialogBody>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-bold text-muted-foreground">Título</label>
+                <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Ex: Relatório de evolução" value={docForm.title} onChange={(e) => setDocForm((f) => ({ ...f, title: e.target.value }))} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold text-muted-foreground">Tipo</label>
+                <select className="w-full rounded-lg border px-3 py-2 text-sm" value={docForm.type} onChange={(e) => setDocForm((f) => ({ ...f, type: e.target.value }))}>
+                  <option value="relatorio">Relatório</option>
+                  <option value="atestado">Atestado</option>
+                  <option value="receituario">Receituário</option>
+                  <option value="encaminhamento">Encaminhamento</option>
+                  <option value="laudo">Laudo</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold text-muted-foreground">Conteúdo (texto)</label>
+                <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={4} placeholder="Corpo do documento..." value={docForm.body} onChange={(e) => setDocForm((f) => ({ ...f, body: e.target.value }))} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold text-muted-foreground">HTML (opcional, substitui o texto)</label>
+                <textarea className="w-full rounded-lg border px-3 py-2 text-sm font-mono" rows={4} placeholder="<p>HTML formatado...</p>" value={docForm.html} onChange={(e) => setDocForm((f) => ({ ...f, html: e.target.value }))} />
+              </div>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDocModalOpen(false)}>Cancelar</Button>
+            <Button onClick={() => createDocMutation.mutate()} disabled={createDocMutation.isPending}>
+              {createDocMutation.isPending ? "Gerando..." : "Gerar Documento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
