@@ -8,7 +8,11 @@ import { fmtTime } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+<<<<<<< Updated upstream
 function exportCSV(appointments: any[], patientMap: Map<string, any>, serviceMap: Map<string, any>, month: string) {
+=======
+function exportCSV(appointments: Appointment[], patientMap: Map<string, Patient>, serviceMap: Map<string, Service>, month: string, realized: number, forecast: number) {
+>>>>>>> Stashed changes
   const rows = [["Data", "Horário", "Paciente", "Serviço", "Status", "Valor"]];
   for (const a of appointments) {
     const p = patientMap.get(a.patient_id);
@@ -22,6 +26,9 @@ function exportCSV(appointments: any[], patientMap: Map<string, any>, serviceMap
       Number(a.service_price_at_time || 0).toFixed(2),
     ]);
   }
+  rows.push([]);
+  rows.push(["Faturamento realizado", "", "", "", "", realized.toFixed(2)]);
+  rows.push(["Previsão de faturamento", "", "", "", "", forecast.toFixed(2)]);
   const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -68,7 +75,9 @@ export default function RelatorioPage() {
     const confirmado = appointments.filter((a) => a.status === "confirmado").length;
     const concluido = appointments.filter((a) => a.status === "concluido").length;
     const cancelado = appointments.filter((a) => a.status === "cancelado").length;
-    return { total, agendado, confirmado, concluido, cancelado };
+    const realized = appointments.filter((a) => a.status === "concluido").reduce((sum, a) => sum + Number(a.service_price_at_time || 0), 0);
+    const forecast = appointments.filter((a) => a.status === "agendado" || a.status === "confirmado").reduce((sum, a) => sum + Number(a.service_price_at_time || 0), 0);
+    return { total, agendado, confirmado, concluido, cancelado, realized, forecast };
   }, [appointments]);
 
   const statusLabels: Record<string, string> = {
@@ -97,7 +106,7 @@ export default function RelatorioPage() {
           />
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => exportCSV(sortedAppointments, patientMap, serviceMap, month)}>
+          <Button variant="outline" size="sm" onClick={() => exportCSV(sortedAppointments, patientMap, serviceMap, month, kpis.realized, kpis.forecast)}>
             Exportar CSV
           </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()}>
@@ -107,7 +116,9 @@ export default function RelatorioPage() {
       </div>
 
       <div ref={printRef}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label="Faturamento realizado" value={kpis.realized.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} color="text-emerald-600" />
+          <KpiCard label="Previsão de faturamento" value={kpis.forecast.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} color="text-blue-600" />
           <KpiCard label="Total" value={String(kpis.total)} color="text-slate-700" />
           <KpiCard label="Agendados" value={String(kpis.agendado)} color="text-amber-600" />
           <KpiCard label="Confirmados" value={String(kpis.confirmado)} color="text-blue-600" />

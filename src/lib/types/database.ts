@@ -128,6 +128,8 @@ export interface SessionPackage {
   total_sessions: number | null;
   remaining_sessions: number | null;
   active: boolean;
+  closed_at: string | null;
+  closure_reason: string | null;
   created_at: string;
 }
 

@@ -1,11 +1,11 @@
 'use strict';
 const path = require('path');
 const fs   = require('fs/promises');
-const { Browsers, DisconnectReason, fetchLatestWaWebVersion, makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const { Browsers, DisconnectReason, downloadMediaMessage, fetchLatestWaWebVersion, makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const pino   = require('pino');
 const qrcode = require('qrcode-terminal');
 const { tag } = require('./log');
-const { updateStatus, patientExists } = require('./supabase');
+const { updateStatus } = require('./supabase');
 const { S, getSession, setState, touch } = require('./session');
 const { detectHuman, notifyTelegram } = require('./menu');
 const { staffReplied, isMuted, loadMutes } = require('./mute');
@@ -171,24 +171,35 @@ async function handleMessage(activeSock, msg) {
   const phone = jidToPhone(jid);
   const senderName = msg.pushName || '';
 
-  // Extrai texto ou áudio
+  // A equipe assumiu esta conversa: o bot não interfere.
+  if (isMuted(jid)) return;
+
+  // Extrai texto, legenda de mídia ou transcrição do áudio.
   let text = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || msg.message?.imageMessage?.caption || msg.message?.videoMessage?.caption || '').trim();
 
-  // Áudio → fallback amigável
   if (!text && msg.message?.audioMessage) {
-    await activeSock.sendMessage(jid, { text: 'Não consegui ouvir seu áudio agora. Pode escrever a mensagem? 😊' });
-    return;
+    try {
+      const { transcribeAudio } = require('./transcribe');
+      const audio = await downloadMediaMessage(msg, 'buffer', {}, {});
+      text = await transcribeAudio(audio) || '';
+    } catch (e) {
+      tag('Audio', e.message);
+    }
+
+    if (!text) {
+      await activeSock.sendMessage(jid, { text: 'Não consegui entender seu áudio agora. Pode escrever a mensagem? 😊' });
+      return;
+    }
   }
 
   if (!text) return;
 
-  // Verifica se esse paciente está mutado (staff respondeu ou mute manual)
-  if (isMuted(jid)) return;
-
   tag('Msg', phone.slice(0,6) + '***:', text.slice(0,80));
 
   const { generateReply } = require('./reply');
-  const { storeInboxTyped } = require('./supabase');
+  const { bookingNew } = require('./booking');
+  const { detectIntent } = require('./intent');
+  const { storeInbox, storeInboxTyped } = require('./supabase');
   const session = getSession(jid);
   touch(jid);
 
@@ -208,17 +219,27 @@ async function handleMessage(activeSock, msg) {
     return;
   }
 
-  // TUDO o resto → Groq responde naturalmente
-  setState(jid, S.QUESTIONS);
+  const intent = await detectIntent(text);
+  storeInbox(phone, text, intent, false, jid, senderName).catch(() => {});
 
-  // Descobre se é paciente existente (só para números regulares)
-  let patientContext = '';
-  if (phone && !phone.endsWith('@lid')) {
-    try {
-      const exists = await patientExists(phone);
-      if (exists) patientContext = ' (paciente existente)';
-    } catch (_) {}
+  // Captação: envia o formulário uma vez e acompanha a conclusão em segundo plano.
+  if (intent.category === 'agendamento') {
+    if (!session.bookingStarted) {
+      session.bookingStarted = true;
+      bookingNew(activeSock, jid, phone).catch(e => tag('Booking', e.message));
+    } else {
+      await activeSock.sendMessage(jid, { text: 'Assim que você concluir o formulário, nossa equipe recebe seus dados e confirma o melhor horário por aqui. 😊' });
+    }
+    return;
   }
+
+  // Remarcações e confirmações exigem ação da equipe, que recebe aviso imediato.
+  if (intent.category === 'remarcar' || intent.category === 'tarefa') {
+    notifyTelegram(phone, text, intent.category).catch(() => {});
+  }
+
+  // TUDO o resto → resposta natural, usando a categoria para ter uma alternativa segura.
+  setState(jid, S.QUESTIONS);
 
   // Monta histórico da sessão em memória
   if (!session.msgs) session.msgs = [];
@@ -229,7 +250,7 @@ async function handleMessage(activeSock, msg) {
   }));
 
   try { await activeSock.sendPresenceUpdate('composing', jid); } catch (_) {}
-  const reply = await generateReply('geral', text, convHistory, senderName);
+  const reply = await generateReply(intent.category, text, convHistory, senderName);
   if (reply) {
     session.msgs.push({ role: 'assistant', content: reply });
     if (session.msgs.length > 40) session.msgs = session.msgs.slice(-40);

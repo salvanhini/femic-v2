@@ -314,6 +314,10 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
                     const total = pkg.total_sessions ?? 0;
                     const used = total - remaining;
                     const pct = total > 0 ? (used / total) * 100 : 0;
+<<<<<<< Updated upstream
+=======
+                    const packageStatus = remaining === 0 ? "Concluído" : pkg.active ? "Em andamento" : pkg.closed_at ? "Encerrado antecipadamente" : "Encerrado";
+>>>>>>> Stashed changes
                     return (
                       <div key={pkg.id} className="rounded-lg border p-4">
                         <div className="flex items-center justify-between">
@@ -351,6 +355,11 @@ export function PatientChartModal({ patient, onClose }: PatientChartModalProps) 
                         <p className="mt-1 text-[11px] text-muted-foreground">
                           {used} de {total} utilizadas
                         </p>
+                        {pkg.closure_reason && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            <span className="font-bold">Motivo:</span> {pkg.closure_reason}
+                          </p>
+                        )}
                       </div>
                     );
                   })}

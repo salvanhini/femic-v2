@@ -18,19 +18,20 @@ CATEGORIAS:
 Confidence deve refletir certeza real (0.0–1.0).`;
 
 const KB = [
+  // Estas ações têm prioridade sobre a palavra "consulta", que também aparece em pedidos de remarcação.
+  [/\b(remarcar|reagendar|cancelar|desmarcar|trocar|adiar)\b/i, 'remarcar'],
+  [/\bn[aã]o (vou|consigo|posso) (ir|comparecer)\b/i, 'remarcar'],
+  [/\bconfirm\w*\b.{0,25}\b(presen[çc]a|consulta|agendamento)\b/i, 'tarefa'],
   [/\b(marcar|agendar|consulta|avalia[çc]ao|atendimento|sess[aã]o)\b/i, 'agendamento'],
   [/\b(quero|gostaria|preciso).{0,25}(fisioterapia|tratamento|consultar)\b/i, 'agendamento'],
   [/\bprimeira (vez|consulta|avalia[çc]ao)\b/i, 'agendamento'],
   [/\b(quanto custa|valor|pre[çc]o|conveni[oa]|unimed|hapvida|amil|bradesco|particular|plano)\b/i, 'agendamento'],
   [/\b(tem vaga|disponibil|horario disponivel)\b/i, 'agendamento'],
-  [/\b(remarcar|reagendar|cancelar|desmarcar|trocar|adiar).{0,20}(consulta|sess[aã]o|horario|data|dia)?\b/i, 'remarcar'],
-  [/\bn[aã]o (vou|consigo|posso) (ir|comparecer)\b/i, 'remarcar'],
   [/\b(onde fica|endere[çc]o|como chegar|localiza[çc]ao)\b/i, 'duvida'],
   [/\b(funciona|abre|fecha|hor[aá]rio de (funcionamento|atendimento))\b/i, 'duvida'],
   [/\b(encaminhamento|laudo|pedido m[eé]dico|documentos)\b/i, 'duvida'],
   [/\b(aguardo|aguardando).{0,20}(retorno|resposta|contato)\b/i, 'tarefa'],
   [/\b(pode|poderia|consegue).{0,20}(enviar|mandar|passar)\b/i, 'tarefa'],
-  [/\bconfirmar? (presen[çc]a|consulta|agendamento)\b/i, 'tarefa'],
 ];
 
 function strip(t) { return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }

@@ -1,5 +1,5 @@
 import { getSupabase } from "../client";
-import type { Service, HealthInsurance, SessionPackage, ScheduleSettings } from "@/lib/types/database";
+import type { Appointment, Service, HealthInsurance, SessionPackage, ScheduleSettings } from "@/lib/types/database";
 
 export async function fetchServices() {
   const { data, error } = await getSupabase()
@@ -46,6 +46,38 @@ export async function createSessionPackage(pkg: { patient_id: string; service_id
     .single();
   if (error) throw error;
   return data as SessionPackage;
+}
+
+export async function fetchFuturePackageAppointments(pkg: SessionPackage, today: string) {
+  let query = getSupabase()
+    .from("appointments")
+    .select("*")
+    .eq("patient_id", pkg.patient_id)
+    .gte("appointment_date", today)
+    .in("status", ["agendado", "confirmado"])
+    .order("appointment_date")
+    .order("start_time");
+  if (pkg.service_id) query = query.eq("service_id", pkg.service_id);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data as Appointment[];
+}
+
+export async function closeSessionPackage(pkg: SessionPackage, reason: string, appointmentIdsToCancel: string[]) {
+  const supabase = getSupabase();
+  const { error: packageError } = await supabase
+    .from("session_packages")
+    .update({ active: false, closed_at: new Date().toISOString(), closure_reason: reason.trim() || null } as never)
+    .eq("id", pkg.id);
+  if (packageError) throw packageError;
+
+  if (appointmentIdsToCancel.length) {
+    const { error: appointmentsError } = await supabase
+      .from("appointments")
+      .update({ status: "cancelado" } as never)
+      .in("id", appointmentIdsToCancel);
+    if (appointmentsError) throw appointmentsError;
+  }
 }
 
 export async function fetchScheduleSettings() {

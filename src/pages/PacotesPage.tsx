@@ -7,7 +7,14 @@ import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
 import { fetchPatients } from "@/lib/supabase/queries/patients";
 import { fetchServices } from "@/lib/supabase/queries/services";
+<<<<<<< Updated upstream
 import { fetchSessionPackages } from "@/lib/supabase/queries/services";
+=======
+import { closeSessionPackage, createSessionPackage, fetchFuturePackageAppointments, fetchSessionPackages } from "@/lib/supabase/queries/services";
+import { todayIso, fmtDate, fmtTime } from "@/lib/utils/date";
+import { Dialog, DialogBody, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+>>>>>>> Stashed changes
 import type { SessionPackage } from "@/lib/types/database";
 
 const packageSchema = z.object({
@@ -28,6 +35,26 @@ export default function PacotesPage() {
   const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+<<<<<<< Updated upstream
+=======
+  const [search, setSearch] = useState("");
+  const [closingPackage, setClosingPackage] = useState<SessionPackage | null>(null);
+  const [closureReason, setClosureReason] = useState("");
+  const [appointmentsToCancel, setAppointmentsToCancel] = useState<Set<string>>(new Set());
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const filteredPackages = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase("pt-BR");
+    if (!term) return packages;
+
+    return packages.filter((pkg) => {
+      const patientName = patientMap.get(pkg.patient_id)?.name || "";
+      const serviceName = serviceMap.get(pkg.service_id || "")?.name || "";
+      return patientName.toLocaleLowerCase("pt-BR").includes(term)
+        || serviceName.toLocaleLowerCase("pt-BR").includes(term);
+    });
+  }, [packages, patientMap, search, serviceMap]);
+>>>>>>> Stashed changes
 
   const form = useForm<PackageFormData>({
     resolver: zodResolver(packageSchema),
@@ -65,6 +92,28 @@ export default function PacotesPage() {
       toast.success("Pacote atualizado");
       resetForm();
     },
+  });
+
+  const { data: futureAppointments = [] } = useQuery({
+    queryKey: ["future_package_appointments", closingPackage?.id],
+    queryFn: () => fetchFuturePackageAppointments(closingPackage!, todayIso()),
+    enabled: !!closingPackage,
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: () => {
+      if (!closingPackage) throw new Error("Pacote não encontrado");
+      return closeSessionPackage(closingPackage, closureReason, [...appointmentsToCancel]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["session_packages"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success("Pacote encerrado");
+      setClosingPackage(null);
+      setClosureReason("");
+      setAppointmentsToCancel(new Set());
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Não foi possível encerrar o pacote"),
   });
 
   const deleteMutation = useMutation({
@@ -106,6 +155,21 @@ export default function PacotesPage() {
     } else {
       createMutation.mutate(data);
     }
+  }
+
+  function openClosePackage(pkg: SessionPackage) {
+    setClosingPackage(pkg);
+    setClosureReason("");
+    setAppointmentsToCancel(new Set());
+  }
+
+  function toggleAppointmentToCancel(id: string) {
+    setAppointmentsToCancel((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   return (
@@ -185,7 +249,12 @@ export default function PacotesPage() {
                   <span className={low ? "font-bold text-red-500" : ""}>
                     saldo {pkg.remaining_sessions}
                   </span>
+<<<<<<< Updated upstream
                   {!pkg.active && " · Inativo"}
+=======
+                  {pkg.remaining_sessions === 0 ? " · Concluído" : !pkg.active ? " · Encerrado" : " · Em andamento"}
+                  {pkg.closure_reason && ` · Motivo: ${pkg.closure_reason}`}
+>>>>>>> Stashed changes
                 </p>
               </div>
               <button
@@ -194,6 +263,14 @@ export default function PacotesPage() {
               >
                 Editar
               </button>
+              {pkg.active && (
+                <button
+                  className="rounded-lg border px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-50"
+                  onClick={() => openClosePackage(pkg)}
+                >
+                  Encerrar
+                </button>
+              )}
               <button
                 className="rounded-lg border px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                 onClick={() => {
@@ -209,6 +286,45 @@ export default function PacotesPage() {
           <p className="py-8 text-center text-muted-foreground">Nenhum pacote cadastrado.</p>
         )}
       </div>
+
+      <Dialog open={!!closingPackage} onOpenChange={(open) => !open && setClosingPackage(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <div>
+              <DialogDescription>Encerramento antecipado</DialogDescription>
+              <DialogTitle>{closingPackage ? patientMap.get(closingPackage.patient_id)?.name || "Paciente" : ""}</DialogTitle>
+            </div>
+            <DialogClose className="rounded-lg p-2 hover:bg-accent">✕</DialogClose>
+          </DialogHeader>
+          <DialogBody>
+            {closingPackage && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Saldo que permanecerá no histórico: <strong>{closingPackage.remaining_sessions ?? 0} sessão(ões)</strong>.</p>
+                <div>
+                  <label className="mb-1 block text-sm font-bold">Motivo do encerramento (opcional)</label>
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={3} maxLength={300} placeholder="Ex.: paciente recebeu alta, mudou de cidade ou interrompeu o tratamento." value={closureReason} onChange={(event) => setClosureReason(event.target.value)} />
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-bold">Sessões futuras</p>
+                  {futureAppointments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Não há sessões futuras para este pacote.</p>
+                  ) : futureAppointments.map((appointment) => (
+                    <label key={appointment.id} className="mb-2 flex cursor-pointer gap-3 rounded-lg border p-3 text-sm">
+                      <input type="checkbox" checked={appointmentsToCancel.has(appointment.id)} onChange={() => toggleAppointmentToCancel(appointment.id)} />
+                      <span>Cancelar {fmtDate(appointment.appointment_date)} às {fmtTime(appointment.start_time)}</span>
+                    </label>
+                  ))}
+                  {futureAppointments.length > 0 && <p className="mt-2 text-xs text-muted-foreground">As sessões começam desmarcadas; selecione somente as que devem ser canceladas.</p>}
+                </div>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClosingPackage(null)}>Voltar</Button>
+            <Button variant="destructive" onClick={() => closeMutation.mutate()} disabled={closeMutation.isPending}>{closeMutation.isPending ? "Encerrando..." : "Encerrar pacote"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

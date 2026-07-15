@@ -24,11 +24,12 @@ function msgConfirmation(task) { return 'Recebemos seus dados, ' + (task?.patien
 
 async function bookingNew(sock, jid, phone) {
   if (pending.has(phone)) { tag('Booking', 'Ja em andamento:', phone.slice(0,6) + '***'); return; }
+  const startedAt = new Date().toISOString();
   pending.set(phone, Date.now());
   tag('Booking', 'Novo lead:', phone.slice(0,6) + '***');
   try {
     await sock.sendMessage(jid, { text: msgWelcome() });
-    const task = await pollTask(phone);
+    const task = await pollTask(phone, 120000, startedAt);
     if (task) {
       tag('Booking', 'Formulario recebido! Task:', task.id);
       await sock.sendMessage(jid, { text: msgConfirmation(task) });
