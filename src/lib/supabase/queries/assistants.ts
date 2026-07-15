@@ -2,7 +2,7 @@ import { getSupabase } from "../client";
 import type { GeneratedDocument, AssistantTask } from "@/lib/types/database";
 
 export async function fetchDocuments(patientId?: string) {
-  let query = getSupabase()
+  let query = (getSupabase() as any)
     .from("femic_generated_documents")
     .select("*")
     .order("created_at", { ascending: false });
@@ -17,7 +17,7 @@ export async function fetchDocuments(patientId?: string) {
 }
 
 export async function fetchTasks(filters?: { status?: string; origin?: string }) {
-  let query = getSupabase()
+  let query = (getSupabase() as any)
     .from("assistant_tasks")
     .select("*")
     .order("created_at", { ascending: false });
@@ -31,7 +31,7 @@ export async function fetchTasks(filters?: { status?: string; origin?: string })
 }
 
 export async function updateTask(id: string, updates: Partial<AssistantTask>) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("assistant_tasks")
     .update(updates as never)
     .eq("id", id)
@@ -42,7 +42,7 @@ export async function updateTask(id: string, updates: Partial<AssistantTask>) {
 }
 
 export async function createDocument(doc: Partial<GeneratedDocument>) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("femic_generated_documents")
     .insert(doc as never)
     .select()
@@ -52,7 +52,7 @@ export async function createDocument(doc: Partial<GeneratedDocument>) {
 }
 
 export async function createTask(task: Partial<AssistantTask>) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("assistant_tasks")
     .insert(task as never)
     .select()
