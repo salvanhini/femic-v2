@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   format,
   addDays,
@@ -28,21 +28,15 @@ interface WeekViewProps {
   onToggleSelectAll?: () => void;
 }
 
-const HOUR_HEIGHT = 72;
+const HOUR_HEIGHT = 80;
 const DAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const STATUS_BG: Record<string, string> = {
-  agendado: "bg-amber-50 border-l-amber-400",
-  confirmado: "bg-blue-50 border-l-blue-400",
-  concluido: "bg-green-50 border-l-green-400 opacity-75",
-  cancelado: "bg-red-50 border-l-red-400 opacity-60",
+  agendado: "bg-amber-100 text-amber-950 border-l-amber-500 dark:bg-amber-950/70 dark:text-amber-50",
+  confirmado: "bg-sky-100 text-sky-950 border-l-sky-500 dark:bg-sky-950/70 dark:text-sky-50",
+  concluido: "bg-emerald-100 text-emerald-950 border-l-emerald-500 dark:bg-emerald-950/70 dark:text-emerald-50",
+  cancelado: "bg-rose-100 text-rose-950 border-l-rose-500 dark:bg-rose-950/70 dark:text-rose-50",
 };
-
-function shortName(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length <= 1) return name;
-  return parts[0] + " " + parts[parts.length - 1][0] + ".";
-}
 
 const STORAGE_KEY = "femic_agenda_view";
 
@@ -83,8 +77,8 @@ export function WeekView({
   const allDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const days = allDays.filter((d) => workingDays.includes(d.getDay()));
 
-  const effectiveStartHour = scheduleSettings?.start_time ? parseInt(scheduleSettings.start_time.split(":")[0]) : 8;
-  const effectiveEndHour = scheduleSettings?.end_time ? parseInt(scheduleSettings.end_time.split(":")[0]) : 20;
+  const effectiveStartHour = scheduleSettings?.start_time ? parseInt(scheduleSettings.start_time.split(":")[0] ?? "08") : 8;
+  const effectiveEndHour = scheduleSettings?.end_time ? parseInt(scheduleSettings.end_time.split(":")[0] ?? "20") : 20;
   const effectiveTotalHours = effectiveEndHour - effectiveStartHour;
   const hours = Array.from({ length: effectiveTotalHours }, (_, i) => `${String(effectiveStartHour + i).padStart(2, "0")}:00`);
 
@@ -116,7 +110,7 @@ export function WeekView({
     const startOff = sMin - effectiveStartHour * 60;
     const dur = Math.max(eMin - sMin, 15);
     const top = (startOff / 60) * HOUR_HEIGHT;
-    const height = (dur / 60) * HOUR_HEIGHT;
+    const height = Math.max((dur / 60) * HOUR_HEIGHT, 28);
     if (overlapCount > 1) {
       const w = 100 / overlapCount;
       return { top: `${top}px`, height: `${height}px`, width: `calc(${w}% - 4px)`, left: `calc(${overlapIndex * w}% + 2px)`, position: 'absolute' as const, zIndex: 10 };
@@ -126,26 +120,48 @@ export function WeekView({
 
   function computeOverlapLayout(dayAppts: Appointment[]) {
     const sorted = [...dayAppts].sort((a, b) => timeToMin(a.start_time) - timeToMin(b.start_time));
-    const groups: Appointment[][] = [];
-    for (const appt of sorted) {
-      const aS = timeToMin(appt.start_time), aE = timeToMin(appt.end_time);
-      let placed = false;
-      for (const g of groups) {
-        if (g.some((x) => { const gS = timeToMin(x.start_time), gE = timeToMin(x.end_time); return aS < gE && aE > gS; })) {
-          g.push(appt); placed = true; break;
-        }
-      }
-      if (!placed) groups.push([appt]);
-    }
     const map = new Map<string, { index: number; count: number }>();
-    for (const g of groups) g.forEach((a, i) => map.set(a.id, { index: i, count: g.length }));
+
+    let cluster: Appointment[] = [];
+    let clusterEnd = -1;
+    const assignCluster = () => {
+      if (!cluster.length) return;
+      const laneEnds: number[] = [];
+      const laneById = new Map<string, number>();
+      for (const appt of cluster) {
+        const start = timeToMin(appt.start_time);
+        let lane = laneEnds.findIndex((end) => end <= start);
+        if (lane === -1) {
+          lane = laneEnds.length;
+          laneEnds.push(timeToMin(appt.end_time));
+        } else {
+          laneEnds[lane] = timeToMin(appt.end_time);
+        }
+        laneById.set(appt.id, lane);
+      }
+      cluster.forEach((appt) => map.set(appt.id, { index: laneById.get(appt.id) || 0, count: laneEnds.length }));
+    };
+
+    for (const appt of sorted) {
+      const start = timeToMin(appt.start_time);
+      const end = timeToMin(appt.end_time);
+      if (cluster.length && start >= clusterEnd) {
+        assignCluster();
+        cluster = [];
+        clusterEnd = -1;
+      }
+      cluster.push(appt);
+      clusterEnd = Math.max(clusterEnd, end);
+    }
+    assignCluster();
     return map;
   }
 
   // ---- Grade helpers ----
-  function getSlotKey(hourIdx: number): string {
-    return `${String(effectiveStartHour + hourIdx).padStart(2, "0")}:00`;
-  }
+  const getSlotKey = useCallback(
+    (hourIdx: number): string => `${String(effectiveStartHour + hourIdx).padStart(2, "0")}:00`,
+    [effectiveStartHour]
+  );
 
   const appointmentsBySlot = useMemo(() => {
     const map = new Map<string, Map<string, Appointment[]>>();
@@ -164,7 +180,7 @@ export function WeekView({
       map.set(dayKey, hourMap);
     }
     return map;
-  }, [appointmentsByDay, days, effectiveTotalHours, effectiveStartHour]);
+  }, [appointmentsByDay, days, effectiveTotalHours, getSlotKey]);
 
   // ---- Shared handlers ----
   function handleSlotClick(day: Date, hour: number) {
@@ -213,7 +229,7 @@ export function WeekView({
           <button className="rounded-lg border px-2 py-1.5 text-sm hover:bg-accent" onClick={prevWeek}>←</button>
           <button className="rounded-lg border px-2 py-1.5 text-sm hover:bg-accent" onClick={nextWeek}>→</button>
           <h3 className="ml-2 text-base font-bold">
-            {format(weekStart, "dd MMM", { locale: ptBR })} — {days.length > 0 ? format(days[days.length - 1], "dd MMM yyyy", { locale: ptBR }) : format(weekStart, "dd MMM yyyy", { locale: ptBR })}
+            {format(weekStart, "dd MMM", { locale: ptBR })} — {format(days[days.length - 1] ?? weekStart, "dd MMM yyyy", { locale: ptBR })}
           </h3>
         </div>
         <div className="flex gap-1 rounded-lg border p-0.5">
@@ -222,30 +238,32 @@ export function WeekView({
         </div>
       </div>
 
-      <div className="overflow-auto rounded-xl border bg-card">
-        <div className="grid" style={{ gridTemplateColumns: viewMode === "grade" ? `50px repeat(${days.length}, 1fr)` : `60px repeat(${days.length}, 1fr)`, gridTemplateRows: viewMode === "blocos" ? `auto repeat(${effectiveTotalHours}, ${HOUR_HEIGHT}px)` : `auto repeat(${effectiveTotalHours}, auto)` }}>
-          {/* Header */}
-          <div className="sticky top-0 z-10 border-b border-r bg-card" />
-          {days.map((day, i) => (
-            <div key={i} className="sticky top-0 z-10 border-b border-r bg-card px-2 py-2 text-center">
-              <p className="text-[11px] font-medium text-muted-foreground">{DAY_NAMES[day.getDay()]}</p>
-              <p className={cn("text-lg font-bold", isToday(day) && "text-femic-cyan")}>{format(day, "d")}</p>
-            </div>
-          ))}
-
-          {/* Time rows */}
-          {hours.map((hour, hourIndex) => (
-            viewMode === "blocos" ? renderBlocosRow(hour, hourIndex) : renderGradeRow(hour, hourIndex)
-          ))}
+      <div className="overflow-x-auto rounded-xl border bg-card">
+        <div
+          className="grid min-w-max"
+          style={viewMode === "blocos"
+            ? { gridTemplateColumns: `60px repeat(${days.length}, minmax(190px, 1fr))`, gridTemplateRows: `auto ${effectiveTotalHours * HOUR_HEIGHT}px` }
+            : { gridTemplateColumns: `58px repeat(${days.length}, minmax(190px, 1fr))`, gridTemplateRows: `auto repeat(${effectiveTotalHours}, auto)` }}
+        >
+          {viewMode === "blocos" ? renderBlocosTimeline() : <>
+            <div className="sticky top-0 z-10 border-b border-r bg-card" />
+            {days.map((day, i) => (
+              <div key={i} className="sticky top-0 z-10 border-b border-r bg-card px-2 py-2 text-center">
+                <p className="text-[11px] font-medium text-muted-foreground">{DAY_NAMES[day.getDay()]}</p>
+                <p className={cn("text-lg font-bold", isToday(day) && "text-femic-cyan")}>{format(day, "d")}</p>
+              </div>
+            ))}
+            {hours.map((hour, hourIndex) => renderGradeRow(hour, hourIndex))}
+          </>}
         </div>
       </div>
 
       {/* Legenda de cores */}
       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-amber-100 border border-amber-300" /> Agendado</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-blue-100 border border-blue-300" /> Confirmado</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-green-100 border border-green-300" /> Concluído</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-red-100 border border-red-300" /> Cancelado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-amber-400 bg-amber-200 dark:border-amber-700 dark:bg-amber-900" /> Agendado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-sky-400 bg-sky-200 dark:border-sky-700 dark:bg-sky-900" /> Confirmado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-emerald-400 bg-emerald-200 dark:border-emerald-700 dark:bg-emerald-900" /> Concluído</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-rose-400 bg-rose-200 dark:border-rose-700 dark:bg-rose-900" /> Cancelado</span>
       </div>
 
       {/* Slot Summary Dialog */}
@@ -265,18 +283,26 @@ export function WeekView({
                 const p = patientMap.get(appt.patient_id);
                 const s = serviceMap.get(appt.service_id || "");
                 return (
-                  <div key={appt.id} className="rounded-lg border bg-card p-3">
+                  <button
+                    key={appt.id}
+                    type="button"
+                    className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+                    onClick={() => {
+                      setSlotSummaryOpen(false);
+                      handleCardClick(appt);
+                    }}
+                  >
                     <div className="flex items-center justify-between">
                       <span className="font-bold">{p?.name || "—"}</span>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        appt.status === "concluido" ? "bg-green-50 text-green-600" :
-                        appt.status === "cancelado" ? "bg-red-50 text-red-600" :
-                        appt.status === "confirmado" ? "bg-blue-50 text-blue-600" :
-                        "bg-amber-50 text-amber-600"
+                        appt.status === "concluido" ? "bg-green-50 text-green-700 dark:bg-green-950/50 dark:text-green-200" :
+                        appt.status === "cancelado" ? "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-200" :
+                        appt.status === "confirmado" ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-200" :
+                        "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200"
                       }`}>{appt.status}</span>
                     </div>
                     <p className="text-sm text-muted-foreground">{s?.name || "—"} · {fmtTime(appt.start_time)}–{fmtTime(appt.end_time)}</p>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -306,10 +332,10 @@ export function WeekView({
             {infoAppointment && (
               <div className="space-y-4">
                 <div className={`rounded-lg border p-3 text-sm font-bold ${
-                  infoAppointment.status === "agendado" ? "bg-amber-50 text-amber-800 border-amber-200" :
-                  infoAppointment.status === "confirmado" ? "bg-blue-50 text-blue-800 border-blue-200" :
-                  infoAppointment.status === "concluido" ? "bg-green-50 text-green-800 border-green-200" :
-                  "bg-red-50 text-red-800 border-red-200 opacity-70"
+                  infoAppointment.status === "agendado" ? "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-100 dark:border-amber-900" :
+                  infoAppointment.status === "confirmado" ? "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-100 dark:border-blue-900" :
+                  infoAppointment.status === "concluido" ? "bg-green-50 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-100 dark:border-green-900" :
+                  "bg-red-50 text-red-800 border-red-200 opacity-70 dark:bg-red-950/50 dark:text-red-100 dark:border-red-900"
                 }`}>
                   {infoAppointment.status === "agendado" ? "Agendado" :
                    infoAppointment.status === "confirmado" ? "Confirmado" :
@@ -328,19 +354,19 @@ export function WeekView({
           <DialogFooter className="flex-wrap gap-2">
             <div className="flex flex-wrap gap-1">
               {infoAppointment && infoAppointment.status !== "agendado" && (
-                <Button size="sm" variant="outline" className="text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100"
+                <Button size="sm" variant="outline" className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-950"
                   onClick={() => infoAppointment && handleQuickStatus(infoAppointment.id, "agendado")}>Agendado</Button>
               )}
               {infoAppointment && infoAppointment.status !== "confirmado" && (
-                <Button size="sm" variant="outline" className="text-blue-700 border-blue-200 bg-blue-50 hover:bg-blue-100"
+                <Button size="sm" variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-200 dark:hover:bg-blue-950"
                   onClick={() => infoAppointment && handleQuickStatus(infoAppointment.id, "confirmado")}>Confirmado</Button>
               )}
               {infoAppointment && infoAppointment.status !== "concluido" && (
-                <Button size="sm" variant="outline" className="text-green-700 border-green-200 bg-green-50 hover:bg-green-100"
+                <Button size="sm" variant="outline" className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/50 dark:text-green-200 dark:hover:bg-green-950"
                   onClick={() => infoAppointment && handleQuickStatus(infoAppointment.id, "concluido")}>Concluir</Button>
               )}
               {infoAppointment && infoAppointment.status !== "cancelado" && (
-                <Button size="sm" variant="outline" className="text-red-700 border-red-200 bg-red-50 hover:bg-red-100"
+                <Button size="sm" variant="outline" className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200 dark:hover:bg-red-950"
                   onClick={() => infoAppointment && handleQuickStatus(infoAppointment.id, "cancelado")}>Cancelar</Button>
               )}
             </div>
@@ -357,42 +383,60 @@ export function WeekView({
     </>
   );
 
-  // ---- Blocos Row ----
-  function renderBlocosRow(hour: string, hourIndex: number) {
+  // ---- Blocos timeline ----
+  function renderBlocosTimeline() {
     return (
       <>
-        <div key={`time-${hour}`} className="border-r text-right text-[11px] text-muted-foreground" style={{ paddingRight: "6px", paddingTop: "2px" }}>{hour}</div>
-        {days.map((day, dayIndex) => {
-          return (
-            <div key={`cell-${hourIndex}-${dayIndex}`}
-              className={cn("relative border-b border-r border-dashed transition-colors cursor-pointer hover:bg-accent/50", hourIndex === effectiveTotalHours - 1 && "border-b-0")}
-              onClick={() => handleSlotClick(day, effectiveStartHour + hourIndex)}
-            >
-              {hourIndex === 0 && renderBlocosAppts(day, dayIndex)}
+        <div className="sticky top-0 z-10 border-b border-r bg-card" />
+        {days.map((day) => (
+          <div key={format(day, "yyyy-MM-dd")} className="sticky top-0 z-10 border-b border-r bg-card px-2 py-2 text-center">
+            <p className="text-[11px] font-medium text-muted-foreground">{DAY_NAMES[day.getDay()]}</p>
+            <p className={cn("text-lg font-bold", isToday(day) && "text-femic-cyan")}>{format(day, "d")}</p>
+          </div>
+        ))}
+        <div className="relative border-r bg-card">
+          {hours.map((hour, index) => (
+            <div key={hour} className="absolute left-0 right-0 border-b border-dashed pr-1 text-right text-[11px] text-muted-foreground" style={{ top: index * HOUR_HEIGHT, height: HOUR_HEIGHT }}>
+              {hour}
             </div>
-          );
-        })}
+          ))}
+        </div>
+        {days.map((day) => renderBlocosDay(day))}
       </>
     );
   }
 
-  function renderBlocosAppts(day: Date, dayIndex: number) {
+  function renderBlocosDay(day: Date) {
     const dateStr = format(day, "yyyy-MM-dd");
     const dayAppts = appointmentsByDay.get(dateStr) || [];
     const overlapLayout = computeOverlapLayout(dayAppts);
     return (
-      <div className="absolute inset-0 pointer-events-none" style={{ gridRow: `2 / ${effectiveTotalHours + 2}`, gridColumn: dayIndex + 2 }}>
+      <div key={dateStr} className="relative border-r bg-card">
+        {hours.map((_, hourIndex) => (
+          <button
+            key={hourIndex}
+            type="button"
+            className="absolute left-0 right-0 border-b border-dashed text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            style={{ top: hourIndex * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+            onClick={() => handleSlotClick(day, effectiveStartHour + hourIndex)}
+            aria-label={`Criar agendamento em ${format(day, "dd/MM")} às ${getSlotKey(hourIndex)}`}
+          />
+        ))}
+        <div className="pointer-events-none absolute inset-0 z-10">
         {dayAppts.map((appt) => {
           const layout = overlapLayout.get(appt.id);
+          const durationMinutes = Math.max(timeToMin(appt.end_time) - timeToMin(appt.start_time), 15);
           return (
             <div key={appt.id} className="relative pointer-events-auto">
               <AppointmentCard appointment={appt} patient={patientMap.get(appt.patient_id)}
                 service={serviceMap.get(appt.service_id || "")}
                 style={getCardStyle(appt, layout?.index || 0, layout?.count || 1)}
+                durationMinutes={durationMinutes}
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleCardClick(appt); }} />
             </div>
           );
         })}
+        </div>
       </div>
     );
   }
@@ -409,21 +453,26 @@ export function WeekView({
           const slotAppts = appointmentsBySlot.get(dateStr)?.get(slotKey) || [];
           return (
             <div key={`grade-${hourIndex}-${dayIndex}`}
-              className={cn("border-b border-r border-dashed p-1 cursor-pointer hover:bg-accent/30", hourIndex === effectiveTotalHours - 1 && "border-b-0")}
+              className={cn("border-b border-r border-dashed p-2 align-top cursor-pointer hover:bg-accent/30", hourIndex === effectiveTotalHours - 1 && "border-b-0")}
               onClick={() => handleSlotClick(day, effectiveStartHour + hourIndex)}
-              style={{ minHeight: "48px" }}
+              style={{ minHeight: "72px" }}
             >
               {slotAppts.map((appt) => {
                 const p = patientMap.get(appt.patient_id);
                 const s = serviceMap.get(appt.service_id || "");
                 return (
-                  <div key={appt.id}
-                    className={`flex items-center gap-1 rounded px-1.5 py-1 mb-1 cursor-pointer text-xs leading-tight border-l-2 ${STATUS_BG[appt.status] || "bg-white border-l-gray-300"}`}
+                  <button
+                    key={appt.id}
+                    type="button"
+                    className={`mb-1.5 flex w-full items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-xs leading-tight transition-all hover:border-border hover:shadow-sm ${STATUS_BG[appt.status] || "bg-card border-l-muted-foreground"}`}
                     onClick={(e) => { e.stopPropagation(); handleCardClick(appt); }}
                   >
-                    <span className="font-medium shrink-0 text-[11px]">{fmtTime(appt.start_time)}</span>
-                    <span className="truncate font-bold text-[12px]">{shortName(p?.name || "?")}</span>
-                  </div>
+                    <span className="shrink-0 pt-0.5 font-semibold text-[11px] text-current opacity-75">{fmtTime(appt.start_time)}</span>
+                    <span className="min-w-0">
+                      <span className="block break-words font-bold text-[12px] text-current">{p?.name || "Paciente não identificado"}</span>
+                      {s && <span className="mt-0.5 block break-words text-[10px] text-current opacity-75">{s.name}</span>}
+                    </span>
+                  </button>
                 );
               })}
             </div>

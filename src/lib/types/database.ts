@@ -7,83 +7,101 @@ export interface Database {
         Row: Patient;
         Insert: Omit<Patient, "created_at">;
         Update: Partial<Patient>;
+        Relationships: [];
       };
       health_insurances: {
         Row: HealthInsurance;
         Insert: Omit<HealthInsurance, "created_at">;
         Update: Partial<HealthInsurance>;
+        Relationships: [];
       };
       services: {
         Row: Service;
         Insert: Omit<Service, "created_at">;
         Update: Partial<Service>;
+        Relationships: [];
       };
       session_packages: {
         Row: SessionPackage;
         Insert: Omit<SessionPackage, "created_at">;
         Update: Partial<SessionPackage>;
+        Relationships: [];
       };
       appointments: {
         Row: Appointment;
         Insert: Omit<Appointment, "created_at">;
         Update: Partial<Appointment>;
+        Relationships: [];
       };
       clinical_anamneses: {
         Row: ClinicalAnamnesis;
         Insert: Omit<ClinicalAnamnesis, "created_at" | "updated_at">;
         Update: Partial<ClinicalAnamnesis>;
+        Relationships: [];
       };
       clinical_evolutions: {
         Row: ClinicalEvolution;
         Insert: Omit<ClinicalEvolution, "created_at">;
         Update: Partial<ClinicalEvolution>;
+        Relationships: [];
       };
       femic_generated_documents: {
         Row: GeneratedDocument;
         Insert: Omit<GeneratedDocument, "created_at" | "updated_at">;
         Update: Partial<GeneratedDocument>;
+        Relationships: [];
       };
       session_movements: {
         Row: SessionMovement;
         Insert: Omit<SessionMovement, "created_at">;
         Update: Partial<SessionMovement>;
+        Relationships: [];
       };
       clinic_rules: {
         Row: ClinicRule;
         Insert: Omit<ClinicRule, "created_at" | "updated_at">;
         Update: Partial<ClinicRule>;
+        Relationships: [];
       };
       assistant_tasks: {
         Row: AssistantTask;
         Insert: Omit<AssistantTask, "created_at" | "updated_at">;
         Update: Partial<AssistantTask>;
+        Relationships: [];
       };
       schedule_settings: {
         Row: ScheduleSettings;
         Insert: Omit<ScheduleSettings, "created_at">;
         Update: Partial<ScheduleSettings>;
+        Relationships: [];
       };
       patient_form_responses: {
         Row: PatientFormResponse;
         Insert: Omit<PatientFormResponse, "id" | "submitted_at">;
         Update: Partial<PatientFormResponse>;
+        Relationships: [];
       };
       whatsapp_inbox: {
         Row: WhatsappInbox;
         Insert: Omit<WhatsappInbox, "id" | "received_at">;
         Update: Partial<WhatsappInbox>;
+        Relationships: [];
       };
       bot_mutes: {
         Row: BotMute;
         Insert: Omit<BotMute, "id">;
         Update: Partial<BotMute>;
+        Relationships: [];
       };
       whatsapp_service_status: {
         Row: WhatsappServiceStatus;
         Insert: Omit<WhatsappServiceStatus, "id" | "updated_at">;
         Update: Partial<WhatsappServiceStatus>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
 }
 

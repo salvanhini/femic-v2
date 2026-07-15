@@ -7,12 +7,9 @@ import { useServices } from "@/hooks/use-services";
 import { fmtTime } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { Appointment, Patient, Service } from "@/lib/types/database";
 
-<<<<<<< Updated upstream
-function exportCSV(appointments: any[], patientMap: Map<string, any>, serviceMap: Map<string, any>, month: string) {
-=======
 function exportCSV(appointments: Appointment[], patientMap: Map<string, Patient>, serviceMap: Map<string, Service>, month: string, realized: number, forecast: number) {
->>>>>>> Stashed changes
   const rows = [["Data", "Horário", "Paciente", "Serviço", "Status", "Valor"]];
   for (const a of appointments) {
     const p = patientMap.get(a.patient_id);

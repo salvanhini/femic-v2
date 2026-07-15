@@ -13,8 +13,8 @@ export default defineConfig({
         name: "FEMIC - Gestão Clínica",
         short_name: "FEMIC",
         description: "Sistema de gestão para clínicas de fisioterapia",
-        theme_color: "#0b3c6f",
-        background_color: "#ffffff",
+        theme_color: "#38bdf8",
+        background_color: "#0a1020",
         display: "standalone",
         start_url: "/femic-v2/",
         icons: [

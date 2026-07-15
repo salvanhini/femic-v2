@@ -64,8 +64,8 @@ export default function DashboardPage() {
     queryFn: fetchSessionPackages,
   });
 
-  const patientMap = new Map(patients.map((p) => [p.id, p]));
-  const serviceMap = new Map(services.map((s) => [s.id, s]));
+  const patientMap = useMemo(() => new Map(patients.map((p) => [p.id, p])), [patients]);
+  const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
 
   const todaySorted = [...todayAppts].sort((a, b) =>
     a.start_time.localeCompare(b.start_time)

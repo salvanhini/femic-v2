@@ -14,9 +14,9 @@ export async function fetchAnamnesis(patientId: string) {
 export async function upsertAnamnesis(
   anamnesis: Partial<ClinicalAnamnesis>
 ) {
-  const { data, error } = await (getSupabase() as any)
+  const { data, error } = await getSupabase()
     .from("clinical_anamneses")
-    .upsert(anamnesis, { onConflict: "patient_id" })
+    .upsert(anamnesis as never, { onConflict: "patient_id" })
     .select()
     .single();
   if (error) throw error;
@@ -36,9 +36,9 @@ export async function fetchEvolutions(patientId: string) {
 export async function createEvolution(
   evolution: Partial<ClinicalEvolution>
 ) {
-  const { data, error } = await (getSupabase() as any)
+  const { data, error } = await getSupabase()
     .from("clinical_evolutions")
-    .insert(evolution)
+    .insert(evolution as never)
     .select()
     .single();
   if (error) throw error;

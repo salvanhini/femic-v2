@@ -33,15 +33,22 @@ export async function fetchPatientPackages(patientId: string) {
     .from("session_packages")
     .select("*")
     .eq("patient_id", patientId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return data as SessionPackage[];
 }
 
 export async function createSessionPackage(pkg: { patient_id: string; service_id?: string | null; total_sessions: number; remaining_sessions: number }) {
-  const { data, error } = await (getSupabase() as any)
+  const { error: deactivateError } = await getSupabase()
     .from("session_packages")
-    .insert(pkg)
+    .update({ active: false } as never)
+    .eq("patient_id", pkg.patient_id)
+    .eq("active", true);
+  if (deactivateError) throw deactivateError;
+
+  const { data, error } = await getSupabase()
+    .from("session_packages")
+    .insert({ ...pkg, active: true } as never)
     .select()
     .single();
   if (error) throw error;
@@ -91,8 +98,8 @@ export async function fetchScheduleSettings() {
 }
 
 export async function upsertScheduleSettings(settings: Partial<ScheduleSettings>) {
-  const { error } = await (getSupabase() as any)
+  const { error } = await getSupabase()
     .from("schedule_settings")
-    .upsert(settings, { onConflict: "id" });
+    .upsert(settings as never, { onConflict: "id" });
   if (error) throw error;
 }

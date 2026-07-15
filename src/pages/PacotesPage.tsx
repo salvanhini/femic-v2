@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,19 +7,15 @@ import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
 import { fetchPatients } from "@/lib/supabase/queries/patients";
 import { fetchServices } from "@/lib/supabase/queries/services";
-<<<<<<< Updated upstream
-import { fetchSessionPackages } from "@/lib/supabase/queries/services";
-=======
 import { closeSessionPackage, createSessionPackage, fetchFuturePackageAppointments, fetchSessionPackages } from "@/lib/supabase/queries/services";
 import { todayIso, fmtDate, fmtTime } from "@/lib/utils/date";
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
->>>>>>> Stashed changes
 import type { SessionPackage } from "@/lib/types/database";
 
 const packageSchema = z.object({
   patient_id: z.string().min(1, "Selecione o paciente"),
-  service_id: z.string().min(1, "Selecione o serviço"),
+  service_id: z.string(),
   total_sessions: z.preprocess((v) => Number(v) || 0, z.number().min(1, "Mínimo 1 sessão").max(999)),
 });
 
@@ -33,10 +29,24 @@ export default function PacotesPage() {
 
   const patientMap = useMemo(() => new Map(patients.map((p) => [p.id, p])), [patients]);
   const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
+  const packageNumberById = useMemo(() => {
+    const byPatient = new Map<string, SessionPackage[]>();
+    packages.forEach((pkg) => {
+      const patientPackages = byPatient.get(pkg.patient_id) || [];
+      patientPackages.push(pkg);
+      byPatient.set(pkg.patient_id, patientPackages);
+    });
+
+    const numbers = new Map<string, number>();
+    byPatient.forEach((patientPackages) => {
+      patientPackages
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .forEach((pkg, index) => numbers.set(pkg.id, index + 1));
+    });
+    return numbers;
+  }, [packages]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-<<<<<<< Updated upstream
-=======
   const [search, setSearch] = useState("");
   const [closingPackage, setClosingPackage] = useState<SessionPackage | null>(null);
   const [closureReason, setClosureReason] = useState("");
@@ -54,7 +64,6 @@ export default function PacotesPage() {
         || serviceName.toLocaleLowerCase("pt-BR").includes(term);
     });
   }, [packages, patientMap, search, serviceMap]);
->>>>>>> Stashed changes
 
   const form = useForm<PackageFormData>({
     resolver: zodResolver(packageSchema),
@@ -67,12 +76,12 @@ export default function PacotesPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: PackageFormData) => {
-      const { error } = await (getSupabase() as any).from("session_packages").insert({
-        ...data,
+      await createSessionPackage({
+        patient_id: data.patient_id,
+        service_id: data.service_id || null,
+        total_sessions: data.total_sessions,
         remaining_sessions: data.total_sessions,
-        active: true,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["session_packages"] });
@@ -84,7 +93,7 @@ export default function PacotesPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<SessionPackage> }) => {
-      const { error } = await (getSupabase() as any).from("session_packages").update(data).eq("id", id);
+      const { error } = await getSupabase().from("session_packages").update(data as never).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -139,6 +148,8 @@ export default function PacotesPage() {
       service_id: pkg.service_id || "",
       total_sessions: pkg.total_sessions || 0,
     });
+    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    toast.info(`Editando pacote #${packageNumberById.get(pkg.id) || 1}`);
   }
 
   function handleSave(data: PackageFormData) {
@@ -147,7 +158,7 @@ export default function PacotesPage() {
         id: editingId,
         data: {
           patient_id: data.patient_id,
-          service_id: data.service_id,
+          service_id: data.service_id || null,
           total_sessions: data.total_sessions,
           remaining_sessions: data.total_sessions - ((packages.find((p) => p.id === editingId)?.total_sessions ?? data.total_sessions) - (packages.find((p) => p.id === editingId)?.remaining_sessions ?? 0)),
         },
@@ -174,9 +185,25 @@ export default function PacotesPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-bold">Pacotes de Sessão</h2>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold">Pacotes de Sessão</h2>
+          <p className="text-sm text-muted-foreground">Consulte o histórico e o saldo de cada paciente.</p>
+        </div>
+        <div className="w-full sm:w-80">
+          <label htmlFor="package-search" className="mb-1 block text-xs font-bold text-muted-foreground">Buscar pacotes</label>
+          <input
+            id="package-search"
+            type="search"
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+            placeholder="Paciente ou serviço..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+      </div>
 
-      <form onSubmit={form.handleSubmit(handleSave)} className="rounded-xl border bg-card p-4">
+      <form ref={formRef} onSubmit={form.handleSubmit(handleSave)} className="rounded-xl border bg-card p-4">
         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-bold text-muted-foreground">Paciente *</label>
@@ -194,7 +221,7 @@ export default function PacotesPage() {
             )}
           </div>
           <div>
-            <label className="mb-1 block text-xs font-bold text-muted-foreground">Serviço *</label>
+            <label className="mb-1 block text-xs font-bold text-muted-foreground">Serviço</label>
             <select
               className="w-full rounded-lg border px-3 py-2 text-sm"
               {...form.register("service_id")}
@@ -234,7 +261,7 @@ export default function PacotesPage() {
       </form>
 
       <div className="space-y-2">
-        {packages.map((pkg) => {
+        {filteredPackages.map((pkg) => {
           const patient = patientMap.get(pkg.patient_id);
           const service = serviceMap.get(pkg.service_id || "");
           const used = (pkg.total_sessions || 0) - (pkg.remaining_sessions || 0);
@@ -243,18 +270,14 @@ export default function PacotesPage() {
           return (
             <div key={pkg.id} className="flex items-center gap-4 rounded-xl border bg-card p-4">
               <div className="flex-1">
-                <p className="font-bold">{patient?.name || "Paciente"}</p>
+                <p className="font-bold">{patient?.name || "Paciente"} <span className="text-sm text-femic-navy">· Pacote #{packageNumberById.get(pkg.id) || 1}</span></p>
                 <p className="text-sm text-muted-foreground">
                   {service?.name || "Serviço"} · {used}/{pkg.total_sessions} sessões usadas ·{" "}
                   <span className={low ? "font-bold text-red-500" : ""}>
                     saldo {pkg.remaining_sessions}
                   </span>
-<<<<<<< Updated upstream
-                  {!pkg.active && " · Inativo"}
-=======
                   {pkg.remaining_sessions === 0 ? " · Concluído" : !pkg.active ? " · Encerrado" : " · Em andamento"}
                   {pkg.closure_reason && ` · Motivo: ${pkg.closure_reason}`}
->>>>>>> Stashed changes
                 </p>
               </div>
               <button
@@ -284,6 +307,9 @@ export default function PacotesPage() {
         })}
         {packages.length === 0 && (
           <p className="py-8 text-center text-muted-foreground">Nenhum pacote cadastrado.</p>
+        )}
+        {packages.length > 0 && filteredPackages.length === 0 && (
+          <p className="py-8 text-center text-muted-foreground">Nenhum pacote encontrado para esta busca.</p>
         )}
       </div>
 

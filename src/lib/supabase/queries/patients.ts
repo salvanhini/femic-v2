@@ -11,9 +11,10 @@ export async function fetchPatients() {
 }
 
 export async function createPatient(patient: Partial<Patient>) {
-  const { data, error } = await (getSupabase() as any)
+  const id = patient.id || `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  const { data, error } = await getSupabase()
     .from("patients")
-    .insert(patient)
+    .insert({ ...patient, id } as never)
     .select()
     .single();
   if (error) throw error;
@@ -21,9 +22,9 @@ export async function createPatient(patient: Partial<Patient>) {
 }
 
 export async function updatePatient(id: string, patient: Partial<Patient>) {
-  const { data, error } = await (getSupabase() as any)
+  const { data, error } = await getSupabase()
     .from("patients")
-    .update(patient)
+    .update(patient as never)
     .eq("id", id)
     .select()
     .single();

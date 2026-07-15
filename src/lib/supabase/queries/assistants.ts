@@ -33,7 +33,7 @@ export async function fetchTasks(filters?: { status?: string; origin?: string })
 export async function updateTask(id: string, updates: Partial<AssistantTask>) {
   const { data, error } = await getSupabase()
     .from("assistant_tasks")
-    .update(updates)
+    .update(updates as never)
     .eq("id", id)
     .select()
     .single();
@@ -44,7 +44,7 @@ export async function updateTask(id: string, updates: Partial<AssistantTask>) {
 export async function createDocument(doc: Partial<GeneratedDocument>) {
   const { data, error } = await getSupabase()
     .from("femic_generated_documents")
-    .insert(doc)
+    .insert(doc as never)
     .select()
     .single();
   if (error) throw error;
@@ -54,7 +54,7 @@ export async function createDocument(doc: Partial<GeneratedDocument>) {
 export async function createTask(task: Partial<AssistantTask>) {
   const { data, error } = await getSupabase()
     .from("assistant_tasks")
-    .insert(task)
+    .insert(task as never)
     .select()
     .single();
   if (error) throw error;

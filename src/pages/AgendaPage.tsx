@@ -1,12 +1,15 @@
 import { useState, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { WeekView } from "@/components/agenda/WeekView";
 import { MonthView } from "@/components/agenda/MonthView";
 import { DayView } from "@/components/agenda/DayView";
 import { AppointmentModal } from "@/components/agenda/AppointmentModal";
 import { useAppointments, useMonthAppointments } from "@/hooks/use-appointments";
+import { cancelUpcomingAppointments, fetchUpcomingActiveAppointments } from "@/lib/supabase/queries/appointments";
 import { usePatients } from "@/hooks/use-patients";
 import { useServices } from "@/hooks/use-services";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { fmtDate } from "@/lib/utils/date";
 import type { Appointment } from "@/lib/types/database";
@@ -14,6 +17,7 @@ import type { Appointment } from "@/lib/types/database";
 type ViewMode = "week" | "month" | "day";
 
 export default function AgendaPage() {
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [modalOpen, setModalOpen] = useState(false);
@@ -22,6 +26,8 @@ export default function AgendaPage() {
   const [serviceFilter, setServiceFilter] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [bulkCancelOpen, setBulkCancelOpen] = useState(false);
+  const [bulkCancelPatientId, setBulkCancelPatientId] = useState("");
 
   const { data: weekAppointments } = useAppointments(currentDate);
   const { data: monthAppointments } = useMonthAppointments(
@@ -30,6 +36,23 @@ export default function AgendaPage() {
   );
   const { data: patients = [] } = usePatients();
   const { data: services = [] } = useServices();
+  const { data: upcomingAppointments = [], isFetching: isLoadingUpcoming } = useQuery({
+    queryKey: ["upcoming_active_appointments", bulkCancelPatientId],
+    queryFn: () => fetchUpcomingActiveAppointments(bulkCancelPatientId),
+    enabled: bulkCancelOpen && !!bulkCancelPatientId,
+  });
+
+  const bulkCancelMutation = useMutation({
+    mutationFn: () => cancelUpcomingAppointments(bulkCancelPatientId),
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming_active_appointments"] });
+      setBulkCancelOpen(false);
+      setBulkCancelPatientId("");
+      toast.success(`${count} agendamento(s) futuro(s) cancelado(s)`);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Não foi possível cancelar os agendamentos"),
+  });
 
   const patientMap = useMemo(() => new Map(patients.map((p) => [p.id, p])), [patients]);
   const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
@@ -84,7 +107,7 @@ export default function AgendaPage() {
           </div>
 
           <select
-            className="rounded-lg border px-2 py-1.5 text-sm"
+            className="rounded-lg border bg-card px-2 py-1.5 text-sm text-foreground"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -96,7 +119,7 @@ export default function AgendaPage() {
           </select>
 
           <select
-            className="rounded-lg border px-2 py-1.5 text-sm max-w-[160px]"
+            className="max-w-[160px] rounded-lg border bg-card px-2 py-1.5 text-sm text-foreground"
             value={serviceFilter}
             onChange={(e) => setServiceFilter(e.target.value)}
           >
@@ -108,6 +131,9 @@ export default function AgendaPage() {
         </div>
 
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setBulkCancelOpen(true)}>
+            Cancelar em massa
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setSearchOpen(true)}>
             Buscar Agendamentos
           </Button>
@@ -202,10 +228,10 @@ export default function AgendaPage() {
                       <div className="flex items-center justify-between">
                         <span className="font-bold">{p?.name || "—"}</span>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                          a.status === "cancelado" ? "bg-red-50 text-red-600" :
-                          a.status === "concluido" ? "bg-green-50 text-green-600" :
-                          a.status === "confirmado" ? "bg-blue-50 text-blue-600" :
-                          "bg-amber-50 text-amber-600"
+                          a.status === "cancelado" ? "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-200" :
+                          a.status === "concluido" ? "bg-green-50 text-green-700 dark:bg-green-950/50 dark:text-green-200" :
+                          a.status === "confirmado" ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-200" :
+                          "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200"
                         }`}>
                           {a.status}
                         </span>
@@ -219,6 +245,52 @@ export default function AgendaPage() {
               )}
             </div>
           </DialogBody>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkCancelOpen} onOpenChange={(open) => {
+        setBulkCancelOpen(open);
+        if (!open) setBulkCancelPatientId("");
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <div>
+              <DialogDescription>Agenda FEMIC</DialogDescription>
+              <DialogTitle>Cancelar agendamentos em massa</DialogTitle>
+            </div>
+            <DialogClose className="rounded-lg p-2 hover:bg-accent">✕</DialogClose>
+          </DialogHeader>
+          <DialogBody>
+            <p className="text-sm text-muted-foreground">Esta ação cancela apenas os próximos atendimentos agendados ou confirmados. Atendimentos concluídos e cancelados não serão alterados.</p>
+            <div>
+              <label className="mb-1.5 block text-sm font-bold">Paciente</label>
+              <select className="w-full rounded-lg border px-3 py-2.5 text-sm" value={bulkCancelPatientId} onChange={(event) => setBulkCancelPatientId(event.target.value)}>
+                <option value="">Selecione...</option>
+                {patients.map((patient) => <option key={patient.id} value={patient.id}>{patient.name}</option>)}
+              </select>
+            </div>
+            {bulkCancelPatientId && (
+              <div className="rounded-lg border bg-muted/30 p-3">
+                {isLoadingUpcoming ? <p className="text-sm text-muted-foreground">Buscando agendamentos...</p> : <>
+                  <p className="text-sm font-bold">{upcomingAppointments.length} agendamento(s) serão cancelados</p>
+                  {upcomingAppointments.length > 0 && (
+                    <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+                      {upcomingAppointments.map((appointment) => <li key={appointment.id}>{fmtDate(appointment.appointment_date)} às {appointment.start_time.slice(0, 5)}</li>)}
+                    </ul>
+                  )}
+                </>}
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkCancelOpen(false)}>Voltar</Button>
+            <Button variant="destructive" disabled={!bulkCancelPatientId || isLoadingUpcoming || upcomingAppointments.length === 0 || bulkCancelMutation.isPending} onClick={() => {
+              const patientName = patientMap.get(bulkCancelPatientId)?.name || "este paciente";
+              if (confirm(`Cancelar ${upcomingAppointments.length} agendamento(s) de ${patientName}?`)) bulkCancelMutation.mutate();
+            }}>
+              {bulkCancelMutation.isPending ? "Cancelando..." : "Cancelar agendamentos"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
