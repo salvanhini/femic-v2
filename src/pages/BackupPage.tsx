@@ -1,3 +1,6 @@
+/* The backup format is intentionally table-agnostic because it restores multiple schemas. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";

@@ -106,7 +106,7 @@ export function MonthView({
               key={dateStr}
               className={cn(
                 "min-h-[100px] bg-card p-1.5",
-                isToday(day) && "bg-sky-50"
+                isToday(day) && "bg-sky-50 dark:bg-sky-950/30"
               )}
             >
               <p
@@ -120,9 +120,9 @@ export function MonthView({
 
               {counts.total > 0 && (
                 <div className="mb-1 flex gap-1 text-[10px] text-muted-foreground">
-                  <span className="text-amber-600">{counts.agendado} ag.</span>
-                  <span className="text-green-600">{counts.concluido} conc.</span>
-                  <span className="text-red-500">{counts.cancelado} can.</span>
+                  <span className="text-amber-600 dark:text-amber-300">{counts.agendado} ag.</span>
+                  <span className="text-green-600 dark:text-green-300">{counts.concluido} conc.</span>
+                  <span className="text-red-500 dark:text-red-300">{counts.cancelado} can.</span>
                 </div>
               )}
 
@@ -132,10 +132,12 @@ export function MonthView({
                     key={appt.id}
                     className={cn(
                       "w-full truncate rounded px-1 py-0.5 text-left text-[11px] font-medium transition-colors hover:brightness-95",
-                      appt.status === "cancelado" && "bg-red-100 text-red-600 line-through opacity-70",
-                      appt.status === "concluido" && "bg-green-100 text-green-700",
-                      (appt.status === "agendado" || appt.status === "confirmado") &&
-                        "bg-amber-100 text-amber-800"
+                      appt.status === "cancelado" && "bg-red-100 text-red-600 line-through opacity-70 dark:bg-red-950/50 dark:text-red-200",
+                      appt.status === "concluido" && "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-200",
+                      appt.status === "agendado" &&
+                        "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200",
+                      appt.status === "confirmado" &&
+                        "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200"
                     )}
                     onClick={() => onAppointmentClick(appt)}
                   >

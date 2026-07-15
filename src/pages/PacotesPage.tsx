@@ -87,7 +87,7 @@ export default function PacotesPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<SessionPackage> }) => {
-      const { error } = await (getSupabase() as any).from("session_packages").update(data).eq("id", id);
+      const { error } = await getSupabase().from("session_packages").update(data as never).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

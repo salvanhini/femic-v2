@@ -1,3 +1,6 @@
+/* patient_documents is an optional Supabase table not represented in the generated schema. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";

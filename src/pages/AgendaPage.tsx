@@ -107,7 +107,7 @@ export default function AgendaPage() {
           </div>
 
           <select
-            className="rounded-lg border px-2 py-1.5 text-sm"
+            className="rounded-lg border bg-card px-2 py-1.5 text-sm text-foreground"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -119,7 +119,7 @@ export default function AgendaPage() {
           </select>
 
           <select
-            className="rounded-lg border px-2 py-1.5 text-sm max-w-[160px]"
+            className="max-w-[160px] rounded-lg border bg-card px-2 py-1.5 text-sm text-foreground"
             value={serviceFilter}
             onChange={(e) => setServiceFilter(e.target.value)}
           >
@@ -228,10 +228,10 @@ export default function AgendaPage() {
                       <div className="flex items-center justify-between">
                         <span className="font-bold">{p?.name || "—"}</span>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                          a.status === "cancelado" ? "bg-red-50 text-red-600" :
-                          a.status === "concluido" ? "bg-green-50 text-green-600" :
-                          a.status === "confirmado" ? "bg-blue-50 text-blue-600" :
-                          "bg-amber-50 text-amber-600"
+                          a.status === "cancelado" ? "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-200" :
+                          a.status === "concluido" ? "bg-green-50 text-green-700 dark:bg-green-950/50 dark:text-green-200" :
+                          a.status === "confirmado" ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-200" :
+                          "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200"
                         }`}>
                           {a.status}
                         </span>

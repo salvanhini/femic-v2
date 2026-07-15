@@ -1,3 +1,6 @@
+/* Public intake writes fields not present in the current generated Supabase schema. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useState, useRef } from "react";
 import { getSupabase } from "@/lib/supabase/client";
 

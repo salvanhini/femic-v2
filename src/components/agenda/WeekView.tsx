@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   format,
   addDays,
@@ -32,10 +32,10 @@ const HOUR_HEIGHT = 80;
 const DAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const STATUS_BG: Record<string, string> = {
-  agendado: "bg-amber-50 border-l-amber-400",
-  confirmado: "bg-blue-50 border-l-blue-400",
-  concluido: "bg-green-50 border-l-green-400 opacity-75",
-  cancelado: "bg-red-50 border-l-red-400 opacity-60",
+  agendado: "bg-amber-50 text-black border-l-amber-400 dark:bg-slate-700/70 dark:text-white",
+  confirmado: "bg-blue-50 text-black border-l-blue-400 dark:bg-slate-700/70 dark:text-white",
+  concluido: "bg-green-50 text-black border-l-green-400 opacity-75 dark:bg-slate-700/70 dark:text-white",
+  cancelado: "bg-red-50 text-black border-l-red-400 opacity-60 dark:bg-slate-700/70 dark:text-white",
 };
 
 const STORAGE_KEY = "femic_agenda_view";
@@ -158,9 +158,10 @@ export function WeekView({
   }
 
   // ---- Grade helpers ----
-  function getSlotKey(hourIdx: number): string {
-    return `${String(effectiveStartHour + hourIdx).padStart(2, "0")}:00`;
-  }
+  const getSlotKey = useCallback(
+    (hourIdx: number): string => `${String(effectiveStartHour + hourIdx).padStart(2, "0")}:00`,
+    [effectiveStartHour]
+  );
 
   const appointmentsBySlot = useMemo(() => {
     const map = new Map<string, Map<string, Appointment[]>>();
@@ -179,7 +180,7 @@ export function WeekView({
       map.set(dayKey, hourMap);
     }
     return map;
-  }, [appointmentsByDay, days, effectiveTotalHours, effectiveStartHour]);
+  }, [appointmentsByDay, days, effectiveTotalHours, getSlotKey]);
 
   // ---- Shared handlers ----
   function handleSlotClick(day: Date, hour: number) {
@@ -259,10 +260,10 @@ export function WeekView({
 
       {/* Legenda de cores */}
       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-amber-100 border border-amber-300" /> Agendado</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-blue-100 border border-blue-300" /> Confirmado</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-green-100 border border-green-300" /> Concluído</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-red-100 border border-red-300" /> Cancelado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-amber-300 bg-amber-100 dark:border-amber-700 dark:bg-amber-900" /> Agendado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-blue-300 bg-blue-100 dark:border-blue-700 dark:bg-blue-900" /> Confirmado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-green-300 bg-green-100 dark:border-green-700 dark:bg-green-900" /> Concluído</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border border-red-300 bg-red-100 dark:border-red-700 dark:bg-red-900" /> Cancelado</span>
       </div>
 
       {/* Slot Summary Dialog */}
@@ -294,10 +295,10 @@ export function WeekView({
                     <div className="flex items-center justify-between">
                       <span className="font-bold">{p?.name || "—"}</span>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        appt.status === "concluido" ? "bg-green-50 text-green-600" :
-                        appt.status === "cancelado" ? "bg-red-50 text-red-600" :
-                        appt.status === "confirmado" ? "bg-blue-50 text-blue-600" :
-                        "bg-amber-50 text-amber-600"
+                        appt.status === "concluido" ? "bg-green-50 text-green-700 dark:bg-green-950/50 dark:text-green-200" :
+                        appt.status === "cancelado" ? "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-200" :
+                        appt.status === "confirmado" ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-200" :
+                        "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200"
                       }`}>{appt.status}</span>
                     </div>
                     <p className="text-sm text-muted-foreground">{s?.name || "—"} · {fmtTime(appt.start_time)}–{fmtTime(appt.end_time)}</p>
@@ -331,10 +332,10 @@ export function WeekView({
             {infoAppointment && (
               <div className="space-y-4">
                 <div className={`rounded-lg border p-3 text-sm font-bold ${
-                  infoAppointment.status === "agendado" ? "bg-amber-50 text-amber-800 border-amber-200" :
-                  infoAppointment.status === "confirmado" ? "bg-blue-50 text-blue-800 border-blue-200" :
-                  infoAppointment.status === "concluido" ? "bg-green-50 text-green-800 border-green-200" :
-                  "bg-red-50 text-red-800 border-red-200 opacity-70"
+                  infoAppointment.status === "agendado" ? "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-100 dark:border-amber-900" :
+                  infoAppointment.status === "confirmado" ? "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-100 dark:border-blue-900" :
+                  infoAppointment.status === "concluido" ? "bg-green-50 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-100 dark:border-green-900" :
+                  "bg-red-50 text-red-800 border-red-200 opacity-70 dark:bg-red-950/50 dark:text-red-100 dark:border-red-900"
                 }`}>
                   {infoAppointment.status === "agendado" ? "Agendado" :
                    infoAppointment.status === "confirmado" ? "Confirmado" :
@@ -353,19 +354,19 @@ export function WeekView({
           <DialogFooter className="flex-wrap gap-2">
             <div className="flex flex-wrap gap-1">
               {infoAppointment && infoAppointment.status !== "agendado" && (
-                <Button size="sm" variant="outline" className="text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100"
+                <Button size="sm" variant="outline" className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-950"
                   onClick={() => infoAppointment && handleQuickStatus(infoAppointment.id, "agendado")}>Agendado</Button>
               )}
               {infoAppointment && infoAppointment.status !== "confirmado" && (
-                <Button size="sm" variant="outline" className="text-blue-700 border-blue-200 bg-blue-50 hover:bg-blue-100"
+                <Button size="sm" variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-200 dark:hover:bg-blue-950"
                   onClick={() => infoAppointment && handleQuickStatus(infoAppointment.id, "confirmado")}>Confirmado</Button>
               )}
               {infoAppointment && infoAppointment.status !== "concluido" && (
-                <Button size="sm" variant="outline" className="text-green-700 border-green-200 bg-green-50 hover:bg-green-100"
+                <Button size="sm" variant="outline" className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/50 dark:text-green-200 dark:hover:bg-green-950"
                   onClick={() => infoAppointment && handleQuickStatus(infoAppointment.id, "concluido")}>Concluir</Button>
               )}
               {infoAppointment && infoAppointment.status !== "cancelado" && (
-                <Button size="sm" variant="outline" className="text-red-700 border-red-200 bg-red-50 hover:bg-red-100"
+                <Button size="sm" variant="outline" className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200 dark:hover:bg-red-950"
                   onClick={() => infoAppointment && handleQuickStatus(infoAppointment.id, "cancelado")}>Cancelar</Button>
               )}
             </div>
@@ -463,13 +464,13 @@ export function WeekView({
                   <button
                     key={appt.id}
                     type="button"
-                    className={`mb-1.5 flex w-full items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-xs leading-tight transition-all hover:border-slate-300 hover:shadow-sm ${STATUS_BG[appt.status] || "bg-white border-l-gray-300"}`}
+                    className={`mb-1.5 flex w-full items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-xs leading-tight transition-all hover:border-border hover:shadow-sm ${STATUS_BG[appt.status] || "bg-card border-l-muted-foreground"}`}
                     onClick={(e) => { e.stopPropagation(); handleCardClick(appt); }}
                   >
-                    <span className="shrink-0 pt-0.5 font-semibold text-[11px] text-slate-600">{fmtTime(appt.start_time)}</span>
+                    <span className="shrink-0 pt-0.5 font-semibold text-[11px] text-current opacity-75">{fmtTime(appt.start_time)}</span>
                     <span className="min-w-0">
-                      <span className="block break-words font-bold text-[12px] text-slate-900">{p?.name || "Paciente não identificado"}</span>
-                      {s && <span className="mt-0.5 block break-words text-[10px] text-slate-500">{s.name}</span>}
+                      <span className="block break-words font-bold text-[12px] text-current">{p?.name || "Paciente não identificado"}</span>
+                      {s && <span className="mt-0.5 block break-words text-[10px] text-current opacity-75">{s.name}</span>}
                     </span>
                   </button>
                 );
