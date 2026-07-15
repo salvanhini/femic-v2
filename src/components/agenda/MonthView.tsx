@@ -1,4 +1,4 @@
-import { format, addDays, startOfMonth, endOfMonth, isSameMonth, isToday, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 import { cn } from "@/lib/utils";
 import type { Appointment, Patient, Service } from "@/lib/types/database";
@@ -16,7 +16,7 @@ export function MonthView({
   currentDate,
   appointments,
   patients,
-  services,
+  services: _services,
   onDateChange,
   onAppointmentClick,
 }: MonthViewProps) {
@@ -26,7 +26,6 @@ export function MonthView({
   const daysInMonth = monthEnd.getDate();
 
   const patientMap = new Map(patients.map((p) => [p.id, p]));
-  const serviceMap = new Map(services.map((s) => [s.id, s]));
 
   const calendarDays: (Date | null)[] = [];
   for (let i = 0; i < startDay; i++) {

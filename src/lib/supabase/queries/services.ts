@@ -33,15 +33,22 @@ export async function fetchPatientPackages(patientId: string) {
     .from("session_packages")
     .select("*")
     .eq("patient_id", patientId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return data as SessionPackage[];
 }
 
 export async function createSessionPackage(pkg: { patient_id: string; service_id?: string | null; total_sessions: number; remaining_sessions: number }) {
+  const { error: deactivateError } = await (getSupabase() as any)
+    .from("session_packages")
+    .update({ active: false })
+    .eq("patient_id", pkg.patient_id)
+    .eq("active", true);
+  if (deactivateError) throw deactivateError;
+
   const { data, error } = await (getSupabase() as any)
     .from("session_packages")
-    .insert(pkg)
+    .insert({ ...pkg, active: true })
     .select()
     .single();
   if (error) throw error;

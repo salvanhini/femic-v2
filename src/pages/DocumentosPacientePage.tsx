@@ -288,7 +288,7 @@ export default function DocumentosPacientePage() {
   function openNew(docType?: string) {
     setEditing(null);
     const key = docType || "personalizado";
-    const tpl = DOC_TEMPLATES[key] || DOC_TEMPLATES.personalizado;
+    const tpl = DOC_TEMPLATES[key] || DOC_TEMPLATES.personalizado || { title: "Documento personalizado", content: "" };
     setForm({
       patient_id: "",
       title: tpl.title,

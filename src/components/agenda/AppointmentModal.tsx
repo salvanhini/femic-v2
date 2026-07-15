@@ -177,7 +177,7 @@ export function AppointmentModal({
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] max-w-lg flex-col overflow-hidden">
         <DialogHeader>
           <div>
             <DialogDescription>Agenda FEMIC</DialogDescription>
@@ -188,8 +188,8 @@ export function AppointmentModal({
           </DialogClose>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSave)}>
-          <DialogBody>
+        <form onSubmit={form.handleSubmit(handleSave)} className="flex min-h-0 flex-1 flex-col">
+          <DialogBody className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
             <div>
               <Label className="mb-1.5 block">Paciente *</Label>
               <select
@@ -338,7 +338,7 @@ export function AppointmentModal({
             </div>
           </DialogBody>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 px-4 py-3 sm:px-5">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>

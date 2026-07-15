@@ -1,8 +1,9 @@
 import { getSupabase } from "../client";
 import type { Appointment, SessionPackage } from "@/lib/types/database";
+import { todayIso } from "@/lib/utils/date";
 
 export async function fetchAppointments(from: string, to: string) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("appointments")
     .select("*")
     .gte("appointment_date", from)
@@ -16,7 +17,7 @@ export async function fetchAppointments(from: string, to: string) {
 export async function createAppointment(
   appointment: Partial<Appointment>
 ) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await (getSupabase() as any)
     .from("appointments")
     .insert(appointment)
     .select()
@@ -40,16 +41,21 @@ export async function fetchPatientActivePackage(patientId: string) {
 }
 
 async function consumePackage(appointmentId: string, patientId: string, serviceId: string | null) {
-  const supabase = getSupabase();
+  const supabase = getSupabase() as any;
 
   const pkg = await fetchPatientActivePackage(patientId);
   if (!pkg) return;
 
   if (pkg.service_id && serviceId && pkg.service_id !== serviceId) return;
+  const remainingSessions = pkg.remaining_sessions ?? 0;
+  if (remainingSessions <= 0) return;
 
   const { error: updatePkg } = await supabase
     .from("session_packages")
-    .update({ remaining_sessions: pkg.remaining_sessions - 1 })
+    .update({
+      remaining_sessions: remainingSessions - 1,
+      active: remainingSessions > 1,
+    })
     .eq("id", pkg.id);
   if (updatePkg) throw updatePkg;
 
@@ -64,7 +70,7 @@ export async function updateAppointment(
   id: string,
   appointment: Partial<Appointment>
 ) {
-  const supabase = getSupabase();
+  const supabase = getSupabase() as any;
 
   const { data: oldAppt } = await supabase
     .from("appointments")
@@ -97,8 +103,33 @@ export async function deleteAppointment(id: string) {
   if (error) throw error;
 }
 
+export async function fetchUpcomingActiveAppointments(patientId: string) {
+  const { data, error } = await (getSupabase() as any)
+    .from("appointments")
+    .select("*")
+    .eq("patient_id", patientId)
+    .gte("appointment_date", todayIso())
+    .in("status", ["agendado", "confirmado"])
+    .order("appointment_date", { ascending: true })
+    .order("start_time", { ascending: true });
+  if (error) throw error;
+  return data as Appointment[];
+}
+
+export async function cancelUpcomingAppointments(patientId: string) {
+  const { data, error } = await (getSupabase() as any)
+    .from("appointments")
+    .update({ status: "cancelado" })
+    .eq("patient_id", patientId)
+    .gte("appointment_date", todayIso())
+    .in("status", ["agendado", "confirmado"])
+    .select("id");
+  if (error) throw error;
+  return (data || []).length;
+}
+
 export async function quickUpdateStatus(id: string, status: string) {
-  const supabase = getSupabase();
+  const supabase = getSupabase() as any;
 
   const { data: oldAppt } = await supabase
     .from("appointments")

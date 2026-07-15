@@ -5,7 +5,7 @@ export async function fetchClinicRules() {
   const { data, error } = await getSupabase()
     .from("clinic_rules")
     .select("*")
-    .order("priority", { ascending: true, nullsLast: true });
+    .order("priority", { ascending: true, nullsFirst: false });
   if (error) throw error;
   return data as ClinicRule[];
 }
