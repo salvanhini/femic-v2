@@ -26,6 +26,13 @@ type BrowserSpeechRecognition = {
 type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 import type { ClinicalAnamnesis } from "@/lib/types/database";
 
+const clinicalAiLabels: Record<keyof ClinicalAiFields, string> = {
+  chief_complaint: "Queixa principal",
+  history: "História atual",
+  diagnosis: "Diagnóstico / hipótese",
+  clinical_summary: "Avaliação complementar",
+};
+
 export default function ProntuarioPage() {
   const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
   const activePatients = useMemo(() => patients.filter((p) => !p.archived), [patients]);
@@ -68,7 +75,6 @@ export default function ProntuarioPage() {
   const [psychosocialFactors, setPsychosocialFactors] = useState("");
   const [fearAvoidance, setFearAvoidance] = useState("");
   const [clinicalSummary, setClinicalSummary] = useState("");
-  const [showComplement, setShowComplement] = useState(false);
   const [aiDraft, setAiDraft] = useState("");
   const [aiPreview, setAiPreview] = useState<ClinicalAiFields | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -113,10 +119,10 @@ export default function ProntuarioPage() {
   });
 
   const fieldSetters: Record<keyof ClinicalAiFields, (value: string) => void> = {
-    chief_complaint: setChiefComplaint, history: setHistory, diagnosis: setDiagnosis, limitations: setLimitations,
-    goals: setGoals, obs: setObs, occupation_routine: setOccupationRoutine, physical_activity_context: setPhysicalActivity,
-    red_flags: setRedFlags, previous_treatments: setPreviousTreatments, psychosocial_factors: setPsychosocialFactors,
-    fear_avoidance: setFearAvoidance, clinical_summary: setClinicalSummary,
+    chief_complaint: setChiefComplaint,
+    history: setHistory,
+    diagnosis: setDiagnosis,
+    clinical_summary: setClinicalSummary,
   };
 
   function applyAiFields() {
@@ -263,21 +269,14 @@ export default function ProntuarioPage() {
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-bold">Assistente de preenchimento</h3><p className="text-xs text-muted-foreground">Organiza o seu relato; revise tudo antes de salvar.</p></div><Button type="button" variant="outline" size="sm" onClick={startDictation}>{isRecording ? "Ouvindo..." : "Ditado por áudio"}</Button></div>
                 <textarea className="w-full rounded-lg border bg-card px-3 py-2 text-sm" rows={4} value={aiDraft} onChange={(event) => setAiDraft(event.target.value)} placeholder="Digite ou dite o resumo do atendimento, queixa e achados..." />
                 <div className="mt-2 flex justify-end"><Button type="button" size="sm" onClick={() => organizeMutation.mutate()} disabled={organizeMutation.isPending || aiDraft.trim().length < 10}>{organizeMutation.isPending ? "Organizando..." : "Organizar com IA"}</Button></div>
-                {aiPreview && <div className="mt-3 rounded-lg border bg-card p-3"><p className="mb-2 text-sm font-bold">Prévia da IA</p><div className="space-y-2 text-sm">{Object.entries(aiPreview).filter(([, value]) => value).map(([field, value]) => <p key={field}><strong>{field.split("_").join(" ")}:</strong> {value}</p>)}</div><div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="outline" onClick={() => setAiPreview(null)}>Descartar</Button><Button size="sm" onClick={applyAiFields}>Aplicar sugestões</Button></div></div>}
+                {aiPreview && <div className="mt-3 rounded-lg border bg-card p-3"><p className="mb-2 text-sm font-bold">Prévia da IA</p><div className="space-y-2 text-sm">{Object.entries(aiPreview).filter(([, value]) => value).map(([field, value]) => <p key={field}><strong>{clinicalAiLabels[field as keyof ClinicalAiFields]}:</strong> {value}</p>)}</div><div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="outline" onClick={() => setAiPreview(null)}>Descartar</Button><Button size="sm" onClick={applyAiFields}>Aplicar sugestões</Button></div></div>}
               </section>
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="grid gap-4 lg:grid-cols-2">
                 <div><label className="mb-1 block text-sm font-bold">Queixa principal</label><textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={3} value={chiefComplaint} onChange={(e) => setChiefComplaint(e.target.value)} /></div>
                 <div><label className="mb-1 block text-sm font-bold">História atual</label><textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={3} value={history} onChange={(e) => setHistory(e.target.value)} /></div>
                 <div><label className="mb-1 block text-sm font-bold">Diagnóstico / hipótese</label><textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={3} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} /></div>
+                <div><label htmlFor="complementary-assessment" className="mb-1 block text-sm font-bold">Avaliação complementar</label><textarea id="complementary-assessment" className="w-full rounded-lg border px-3 py-2 text-sm" rows={3} value={clinicalSummary} onChange={(e) => setClinicalSummary(e.target.value)} placeholder="Achados relevantes, contexto clínico e pontos de atenção..." /></div>
               </div>
-              <button className="text-sm font-bold text-primary hover:underline" onClick={() => setShowComplement((open) => !open)}>{showComplement ? "Ocultar avaliação complementar" : "Mostrar avaliação complementar"}</button>
-              {showComplement && <div className="grid gap-4 rounded-xl border bg-card p-4 lg:grid-cols-2">
-                <Field label="Limitações funcionais" value={limitations} onChange={setLimitations} /> <Field label="Objetivos" value={goals} onChange={setGoals} />
-                <Field label="Tratamentos anteriores" value={previousTreatments} onChange={setPreviousTreatments} /> <Field label="Rotina ocupacional" value={occupationRoutine} onChange={setOccupationRoutine} />
-                <Field label="Contexto de atividade física" value={physicalActivity} onChange={setPhysicalActivity} /> <Field label="Fatores psicossociais" value={psychosocialFactors} onChange={setPsychosocialFactors} />
-                <Field label="Medo-evitação" value={fearAvoidance} onChange={setFearAvoidance} /> <Field label="Bandeiras vermelhas (red flags)" value={redFlags} onChange={setRedFlags} />
-                <Field label="Observações" value={obs} onChange={setObs} /> <Field label="Sumário clínico" value={clinicalSummary} onChange={setClinicalSummary} />
-              </div>}
               <Button onClick={handleSaveAnamnesis} disabled={upsertMutation.isPending}>{upsertMutation.isPending ? "Salvando..." : "Salvar anamnese"}</Button>
             </div>
           )}
@@ -411,8 +410,4 @@ export default function ProntuarioPage() {
       </Dialog>
     </div>
   );
-}
-
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <div><label className="mb-1 block text-sm font-bold">{label}</label><textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={value} onChange={(event) => onChange(event.target.value)} /></div>;
 }

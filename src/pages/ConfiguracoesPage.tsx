@@ -7,6 +7,7 @@ import { getSupabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import type { ScheduleSettings } from "@/lib/types/database";
 import ServicosPage from "@/pages/ServicosPage";
+import { configureClinicalAi, getClinicalAiConfig, type ClinicalAiProvider } from "@/lib/ai/clinical-ai";
 
 const DAYS = [
   { value: "0", label: "Dom" },
@@ -33,18 +34,26 @@ interface TableStatus {
   error?: string;
 }
 
-type SettingsTab = "schedule" | "services" | "health";
+type SettingsTab = "schedule" | "services" | "health" | "ai";
+
+const AI_MODELS: Record<ClinicalAiProvider, string> = {
+  groq: "llama-3.3-70b-versatile",
+  openrouter: "google/gemini-2.0-flash-001",
+  gemini: "gemini-2.0-flash",
+};
 
 const tabFromSearchParam: Record<string, SettingsTab> = {
   horarios: "schedule",
   servicos: "services",
   saude: "health",
+  ia: "ai",
 };
 
 const searchParamFromTab: Record<SettingsTab, string> = {
   schedule: "horarios",
   services: "servicos",
   health: "saude",
+  ai: "ia",
 };
 
 export default function ConfiguracoesPage() {
@@ -68,6 +77,10 @@ export default function ConfiguracoesPage() {
   // Health check state
   const [healthResults, setHealthResults] = useState<TableStatus[]>([]);
   const [checking, setChecking] = useState(false);
+  const storedAiConfig = getClinicalAiConfig();
+  const [aiProvider, setAiProvider] = useState<ClinicalAiProvider>(storedAiConfig?.provider || "groq");
+  const [aiApiKey, setAiApiKey] = useState(storedAiConfig?.apiKey || "");
+  const [aiModel, setAiModel] = useState(storedAiConfig?.model || AI_MODELS[storedAiConfig?.provider || "groq"]);
 
   useEffect(() => {
     if (settings) {
@@ -119,6 +132,16 @@ export default function ConfiguracoesPage() {
       slot_interval_minutes: Number(slotInterval) || 30,
       max_patients_per_slot: Number(maxPatients) || 4,
     });
+  }
+
+  function handleAiProviderChange(provider: ClinicalAiProvider) {
+    setAiProvider(provider);
+    setAiModel(AI_MODELS[provider]);
+  }
+
+  function handleSaveAi() {
+    configureClinicalAi({ provider: aiProvider, apiKey: aiApiKey, model: aiModel });
+    toast.success(aiApiKey.trim() ? "Configuração de IA salva neste navegador" : "Configuração local removida; a IA usará o servidor");
   }
 
   async function handleHealthCheck() {
@@ -180,6 +203,14 @@ export default function ConfiguracoesPage() {
         >
           Saúde do Sistema
         </button>
+        <button
+          className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
+            tab === "ai" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
+          }`}
+          onClick={() => selectTab("ai")}
+        >
+          IA
+        </button>
       </div>
 
       {tab === "schedule" && (
@@ -234,6 +265,33 @@ export default function ConfiguracoesPage() {
       )}
 
       {tab === "services" && <ServicosPage />}
+
+      {tab === "ai" && (
+        <div className="max-w-2xl rounded-xl border bg-card p-6">
+          <h3 className="font-bold">Assistente de IA</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Escolha o provedor e o modelo usados para organizar o prontuário.</p>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-bold text-muted-foreground">Provedor</label>
+              <select className="w-full rounded-lg border px-3 py-2 text-sm" value={aiProvider} onChange={(event) => handleAiProviderChange(event.target.value as ClinicalAiProvider)}>
+                <option value="groq">Groq</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="gemini">Google Gemini</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-muted-foreground">Modelo</label>
+              <input className="w-full rounded-lg border px-3 py-2 text-sm" value={aiModel} onChange={(event) => setAiModel(event.target.value)} placeholder="Modelo do provedor" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <label className="mb-1 block text-xs font-bold text-muted-foreground">Chave de API</label>
+            <input type="password" autoComplete="off" className="w-full rounded-lg border px-3 py-2 text-sm" value={aiApiKey} onChange={(event) => setAiApiKey(event.target.value)} placeholder="Cole a chave do provedor escolhido" />
+          </div>
+          <p className="mt-3 text-xs text-amber-700">A chave é salva apenas neste navegador. Em computadores compartilhados, prefira manter a chave configurada no Supabase.</p>
+          <div className="mt-5"><Button onClick={handleSaveAi}>Salvar configuração de IA</Button></div>
+        </div>
+      )}
 
       {tab === "health" && (
         <div className="space-y-4">

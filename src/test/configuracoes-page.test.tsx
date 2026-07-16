@@ -35,4 +35,14 @@ describe("ConfiguracoesPage", () => {
     expect(screen.getByRole("button", { name: "Horários" })).toHaveClass("border-b-2");
     expect(screen.getByRole("heading", { name: "Horários de Funcionamento" })).toBeInTheDocument();
   });
+
+  it("opens the complete AI configuration tab from the URL", () => {
+    renderSettings("/configuracoes?aba=ia");
+
+    expect(screen.getByRole("heading", { name: "Assistente de IA" })).toBeInTheDocument();
+    expect(screen.getByText("Provedor")).toBeInTheDocument();
+    expect(screen.getByText("Modelo")).toBeInTheDocument();
+    expect(screen.getByText("Chave de API")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Salvar configuração de IA" })).toBeInTheDocument();
+  });
 });

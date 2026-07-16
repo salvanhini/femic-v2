@@ -6,13 +6,11 @@ const corsHeaders = {
 };
 
 const fields = [
-  "chief_complaint", "history", "diagnosis", "limitations", "goals", "previous_treatments",
-  "occupation_routine", "physical_activity_context", "psychosocial_factors", "fear_avoidance",
-  "red_flags", "obs", "clinical_summary",
+  "chief_complaint", "history", "diagnosis", "clinical_summary",
 ];
 
 const systemPrompt = `Você organiza um rascunho fornecido por um profissional de fisioterapia. Retorne SOMENTE JSON com os campos: ${fields.join(", ")}.
-Use texto breve, direto e fiel ao rascunho. Não invente fatos, diagnóstico, conduta ou red flags. Para informações ausentes, use string vazia. "diagnosis" deve preservar hipótese relatada, sem criar uma nova.`;
+Use texto breve, direto e fiel ao rascunho. "clinical_summary" será exibido como "Avaliação complementar": reúna nele somente achados relevantes, contexto clínico e pontos de atenção mencionados no relato. Não invente fatos, diagnóstico, conduta ou alertas. Para informações ausentes, use string vazia. "diagnosis" deve preservar hipótese relatada, sem criar uma nova.`;
 
 function parseJson(content: string) {
   const clean = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/, "").trim();
@@ -51,6 +49,24 @@ async function callGemini(apiKey: string, model: string, draft: string) {
   return parseJson(data.candidates?.[0]?.content?.parts?.[0]?.text || "");
 }
 
+type LocalAiConfig = {
+  provider: "groq" | "openrouter" | "gemini";
+  apiKey: string;
+  model: string;
+};
+
+function getLocalAiConfig(value: unknown): LocalAiConfig | null {
+  if (!value || typeof value !== "object") return null;
+  const config = value as Record<string, unknown>;
+  if (!(["groq", "openrouter", "gemini"] as const).includes(config.provider as LocalAiConfig["provider"])) return null;
+  if (typeof config.apiKey !== "string" || !config.apiKey.trim()) return null;
+  return {
+    provider: config.provider as LocalAiConfig["provider"],
+    apiKey: config.apiKey.trim(),
+    model: typeof config.model === "string" ? config.model.trim() : "",
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
@@ -60,12 +76,16 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
 
-    const { draft } = await req.json();
+    const { draft, config } = await req.json();
     if (typeof draft !== "string" || draft.trim().length < 10 || draft.length > 12000) {
       return Response.json({ error: "Informe um rascunho entre 10 e 12.000 caracteres" }, { status: 400, headers: corsHeaders });
     }
 
     const attempts: Array<() => Promise<Record<string, string>>> = [];
+    const localConfig = getLocalAiConfig(config);
+    if (localConfig?.provider === "groq") attempts.push(() => callOpenAiCompatible("https://api.groq.com/openai/v1/chat/completions", localConfig.apiKey, localConfig.model || "llama-3.3-70b-versatile", draft));
+    if (localConfig?.provider === "openrouter") attempts.push(() => callOpenAiCompatible("https://openrouter.ai/api/v1/chat/completions", localConfig.apiKey, localConfig.model || "google/gemini-2.0-flash-001", draft, { "HTTP-Referer": Deno.env.get("APP_URL") || "", "X-OpenRouter-Title": "FEMIC" }));
+    if (localConfig?.provider === "gemini") attempts.push(() => callGemini(localConfig.apiKey, localConfig.model || "gemini-2.0-flash", draft));
     const groqKey = Deno.env.get("GROQ_API_KEY");
     if (groqKey) attempts.push(() => callOpenAiCompatible("https://api.groq.com/openai/v1/chat/completions", groqKey, Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile", draft));
     const routerKey = Deno.env.get("OPENROUTER_API_KEY");
